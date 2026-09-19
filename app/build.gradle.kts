@@ -1,5 +1,6 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import java.io.File
+import java.time.LocalDate
 import java.util.Properties
 import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
@@ -8,6 +9,16 @@ import java.util.zip.ZipOutputStream
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.aboutLibraries)
+}
+
+// The about screen reads the licence list the plugin generates from the
+// dependency graph, exactly as MikuRay's does.
+aboutLibraries {
+    collect {
+        includeTestVariants.set(false)
+        filterVariants.addAll("debug", "release")
+    }
 }
 
 val localProps = Properties().apply {
@@ -33,6 +44,14 @@ android {
         versionCode = 10
         versionName = "UwU-1.0.0"
 
+        // The ported banner card (uwu_banner_theme / uwu_maintainer) reads these
+        // the same way MikuRay's does — MikuRay declares them as resValues in its
+        // build script, so the vendored layouts expect the names to exist.
+        val bannerVersionName = versionName ?: "UwU-1.0.0"
+        resValue("string", "uwu_version_name", bannerVersionName)
+        resValue("string", "uwu_package_name", "top.uwu.mikubox")
+        resValue("string", "uwu_build_date", LocalDate.now().toString())
+
         externalNativeBuild {
             cmake {
                 arguments += "-DMIHOMO_JNI_LIBS_DIR=${layout.buildDirectory.get().asFile}/generated/mihomo-jniLibs"
@@ -57,7 +76,17 @@ android {
 
     buildFeatures {
         viewBinding = true
+        // The ported screens read BuildConfig.VERSION_NAME / APPLICATION_ID the
+        // way MikuRay's do (the about screen prints both).
+        buildConfig = true
     }
+
+    // MikuRay's vendored sources are compiled by :mikuray-ui (they need to see
+    // the view bindings generated there), so this module only compiles MikuBox's
+    // own code and consumes the rest as a dependency.
+    sourceSets.getByName("main").java.filter.exclude("com/miku/ray/**")
+
+    testOptions.unitTests.isIncludeAndroidResources = true
 
     splits {
         abi {
@@ -104,6 +133,8 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_21
         targetCompatibility = JavaVersion.VERSION_21
+        // MikuRay's sources use java.time and java.util.stream on API 24.
+        isCoreLibraryDesugaringEnabled = true
     }
 }
 
@@ -155,7 +186,18 @@ val buildMihomoBridge by tasks.registering {
                 environment("CC", clangDir.resolve(compiler + exeExt).absolutePath)
 
                 commandLine(
+                    // with_gvisor matches Mihomo's own release build; without the
+                    // tag the gvisor/mixed TUN stacks are unavailable at runtime.
+                    //
+                    // cmfa drops Mihomo's root-only Android paths. Its sing-tun
+                    // binding reads /data/system/packages.xml to build per-app
+                    // rules; an unprivileged app gets EACCES, that step fails, and
+                    // the TUN listener is never started while hub.Parse still
+                    // reports success - a VPN that is up with no traffic at all.
+                    // The tag is Mihomo's own switch for apps that embed the core
+                    // and own the VpnService themselves.
                     "go", "build", "-trimpath", "-buildmode=c-shared",
+                    "-tags", "with_gvisor cmfa",
                     "-ldflags=-s -w", "-o", output.absolutePath, "."
                 )
             }
@@ -274,6 +316,8 @@ kotlin {
 }
 
 dependencies {
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.14.1")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
@@ -282,4 +326,39 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.zxing.core)
+
+    // MikuRay's design layer (resources) and its icon set. Both are
+    // resource-only modules; the screens that consume them live in this module
+    // under com.miku.ray.*.
+    implementation(project(":mikuray-ui"))
+    implementation(project(":remixicon"))
+
+    implementation(libs.androidx.preference)
+    implementation(libs.androidx.recyclerview)
+    implementation(libs.androidx.viewpager2)
+    implementation(libs.androidx.fragment.ktx)
+    implementation(libs.androidx.swiperefreshlayout)
+    implementation(libs.androidx.palette)
+    implementation(libs.androidx.lifecycle.viewmodel)
+    implementation(libs.androidx.lifecycle.livedata)
+    implementation(libs.androidx.lifecycle.runtime)
+
+    // Open-source licence list on the about screen.
+    implementation(libs.aboutlibraries.view)
+
+    // MikuRay's vendored sources use these directly.
+    implementation(libs.glide)
+    implementation(libs.ucrop)
+    implementation(libs.editorkit)
+    implementation(libs.language.base)
+    implementation(libs.language.json)
+    implementation(libs.flexbox)
+    implementation(libs.okhttp)
+    implementation(libs.gson)
+    implementation(libs.snakeyaml)
+    implementation(libs.mmkv)
+    implementation(libs.play.services.location)
+    implementation(libs.zxing.lite)
+    implementation(libs.work.multiprocess)
+    coreLibraryDesugaring(libs.desugar.jdk.libs)
 }

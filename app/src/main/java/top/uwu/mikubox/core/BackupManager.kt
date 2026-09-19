@@ -17,6 +17,10 @@ object BackupManager {
         "miku_app_settings",
         "mihomo_vpn_settings",
         "mihomo_traffic",
+        "mihomo_core_settings",
+        "miku_core_overrides",
+        "miku_dns_settings",
+        "miku_dns_overrides",
     )
 
     fun export(context: Context): String {
@@ -43,7 +47,12 @@ object BackupManager {
     }
 
     fun import(context: Context, json: String) {
-        val stores = JSONObject(json).getJSONObject("stores")
+        val root = JSONObject(json)
+        require(root.getInt("version") == VERSION) { "Unsupported backup version" }
+        val stores = root.getJSONObject("stores")
+        // Parse every store before applying any editor. A malformed later store
+        // must not leave earlier stores overwritten by a failed import.
+        val editors = mutableListOf<android.content.SharedPreferences.Editor>()
         for (name in stores.keys()) {
             if (name !in STORES) continue
             val entries = stores.getJSONObject(name)
@@ -62,9 +71,11 @@ object BackupManager {
                         for (i in 0 until arr.length()) set.add(arr.getString(i))
                         editor.putStringSet(key, set)
                     }
+                    else -> error("Unknown backup value type")
                 }
             }
-            editor.commit()
+            editors += editor
         }
+        editors.forEach { check(it.commit()) { "Could not persist restored settings" } }
     }
 }

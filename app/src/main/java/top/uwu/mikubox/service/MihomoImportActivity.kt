@@ -9,9 +9,17 @@ class MihomoImportActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        intent?.data?.let { data ->
-            runCatching { MihomoProfileImporter.importUri(this, data) }
+        val data = intent?.data
+        if (data != null) {
+            // Plain Activity has no lifecycleScope; a raw thread keeps the read
+            // and parse off the main thread, and finish() only fires once the
+            // import settles so the transient URI grant outlives the work.
+            Thread {
+                runCatching { MihomoProfileImporter.importUri(this, data) }
+                runOnUiThread { finish() }
+            }.start()
+        } else {
+            finish()
         }
-        finish()
     }
 }

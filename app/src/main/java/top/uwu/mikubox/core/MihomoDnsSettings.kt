@@ -4,12 +4,13 @@ import android.content.Context
 import android.content.SharedPreferences
 
 /**
- * Manages the user-configurable Mihomo DNS override.
+ * Manages the app-side Mihomo DNS block and how it combines with the active
+ * profile's own `dns:` section.
  *
- * When enabled, this DNS mapping replaces the `dns:` section supplied by the
- * active profile. The default configuration is designed for TUN mode and for
- * users across multiple Asian regions without depending on a single country's
- * DNS infrastructure.
+ * [DnsSource.AUTO] (the default) keeps the DNS configuration a Clash-format
+ * profile brings in and only falls back to the app block when the profile has
+ * no `dns:` mapping; [DnsSource.APP] always replaces it; [DnsSource.CONFIG]
+ * always keeps it.
  *
  * The YAML stored here represents the content inside Mihomo's top-level
  * `dns:` mapping. Callers are responsible for inserting it under `dns:`.
@@ -18,10 +19,28 @@ object MihomoDnsSettings {
 
     private const val PREFS_NAME = "miku_dns_settings"
 
+    private const val KEY_SOURCE = "dns_source"
+
+    /** Legacy boolean replaced by [KEY_SOURCE]; read once for migration. */
     private const val KEY_OVERRIDE_ENABLED = "override_enabled"
+
     private const val KEY_OVERRIDE_YAML = "override_yaml"
 
-    private const val DEFAULT_OVERRIDE_ENABLED = true
+    private const val LEGACY_OVERRIDE_ENABLED = true
+
+    /**
+     * How the app DNS block combines with the profile's `dns:` section.
+     */
+    enum class DnsSource {
+        /** Use the profile's `dns:` when it declares one, else the app block. */
+        AUTO,
+
+        /** Always replace the profile's `dns:` with the app block. */
+        APP,
+
+        /** Always keep the profile's `dns:` (Mihomo defaults when absent). */
+        CONFIG,
+    }
 
     /**
      * Region-neutral DNS defaults for Mihomo TUN mode.
@@ -115,24 +134,29 @@ object MihomoDnsSettings {
     """.trimIndent()
 
     /**
-     * Whether the app-provided DNS block replaces the profile's DNS section.
+     * The active combination mode. Migrates from the legacy override boolean
+     * on first read: enabled maps to [DnsSource.AUTO], disabled to
+     * [DnsSource.CONFIG].
      */
-    fun overrideEnabled(context: Context): Boolean =
-        preferences(context).getBoolean(
-            KEY_OVERRIDE_ENABLED,
-            DEFAULT_OVERRIDE_ENABLED,
-        )
+    fun source(context: Context): DnsSource {
+        val stored = preferences(context).getString(KEY_SOURCE, null)
+        if (stored != null) {
+            return runCatching { DnsSource.valueOf(stored) }.getOrDefault(DnsSource.AUTO)
+        }
+        val legacyEnabled = preferences(context).getBoolean(KEY_OVERRIDE_ENABLED, LEGACY_OVERRIDE_ENABLED)
+        return if (legacyEnabled) DnsSource.AUTO else DnsSource.CONFIG
+    }
 
     /**
-     * Enables or disables the DNS override.
+     * Stores the combination mode.
      *
      * Uses [SharedPreferences.Editor.apply] because no caller needs to block
      * until the preference has been synchronously written to disk.
      */
-    fun setOverrideEnabled(context: Context, enabled: Boolean) {
+    fun setSource(context: Context, source: DnsSource) {
         preferences(context)
             .edit()
-            .putBoolean(KEY_OVERRIDE_ENABLED, enabled)
+            .putString(KEY_SOURCE, source.name)
             .apply()
     }
 
@@ -167,7 +191,7 @@ object MihomoDnsSettings {
     }
 
     /**
-     * Removes the custom YAML while preserving the current enabled state.
+     * Removes the custom YAML while preserving the current source mode.
      */
     fun resetYaml(context: Context) {
         preferences(context)
@@ -182,19 +206,81 @@ object MihomoDnsSettings {
     fun resetAll(context: Context) {
         preferences(context)
             .edit()
-            .remove(KEY_OVERRIDE_ENABLED)
+            .remove(KEY_SOURCE)
             .remove(KEY_OVERRIDE_YAML)
             .apply()
     }
 
     /**
-     * Returns the DNS YAML to inject during core startup.
-     *
-     * An empty string means that the original profile DNS section should be
-     * retained without modification.
+     * Returns the DNS YAML to inject during core startup, or an empty string to
+     * keep the profile's own `dns:` section, based on the active
+     * [DnsSource] and the profile configuration.
      */
-    fun effectiveOverride(context: Context): String =
-        if (overrideEnabled(context)) yaml(context) else ""
+    fun effectiveOverride(context: Context, configYaml: String): String = when (source(context)) {
+        DnsSource.APP -> yaml(context)
+        DnsSource.CONFIG -> ""
+        DnsSource.AUTO -> if (configHasUsableDns(configYaml)) "" else yaml(context)
+    }
+
+    /**
+     * Whether the profile brings a DNS block the core can answer with. A block
+     * that is switched off does not count: the VPN's TUN captures every resolver
+     * query, so the core would hijack them and never reply, which reaches the
+     * user as a connection without internet.
+     */
+    fun configHasUsableDns(config: String): Boolean = configHasDns(config) && !configDnsDisabled(config)
+
+    /**
+     * Whether the profile's `dns:` block is explicitly disabled (`enable: false`
+     * and its YAML spellings). Line-based like [configHasDns], and it only
+     * considers keys at the block's own indentation level so a nested `enable`
+     * cannot be mistaken for the block switch.
+     */
+    fun configDnsDisabled(config: String): Boolean {
+        val lines = config.lines()
+        val headerIndex = lines.indexOfFirst { it.startsWith("dns:") }
+        if (headerIndex < 0) return false
+
+        var childIndent = -1
+        for (index in headerIndex + 1 until lines.size) {
+            val line = lines[index]
+            val trimmed = line.trim()
+            if (trimmed.isEmpty() || trimmed.startsWith("#")) continue
+            val indent = line.indexOfFirst { !it.isWhitespace() }
+            if (indent == 0) return false // a new top-level key ends the block
+            if (childIndent < 0) childIndent = indent
+            if (indent != childIndent) continue
+            if (!trimmed.startsWith("enable:")) continue
+            val value = trimmed.removePrefix("enable:").trim().substringBefore(' ').lowercase()
+            return value in FALSE_VALUES
+        }
+        return false
+    }
+
+    private val FALSE_VALUES = setOf("false", "no", "off", "0")
+
+    /**
+     * Whether a Mihomo configuration declares a top-level `dns:` mapping with
+     * content. Line-based on purpose: the app never re-serializes profile YAML,
+     * so a structural scan for this single key stays reliable.
+     */
+    fun configHasDns(config: String): Boolean {
+        val lines = config.lines()
+        val headerIndex = lines.indexOfFirst { it.startsWith("dns:") }
+        if (headerIndex < 0) return false
+
+        val inline = lines[headerIndex].substringAfter(':').trim()
+        if (inline.isNotEmpty()) return inline !in setOf("null", "~", "{}", "{ }")
+
+        // Block form: a mapping exists only when an indented child key appears
+        // before the next top-level key.
+        for (line in lines.listIterator(headerIndex + 1)) {
+            val trimmed = line.trim()
+            if (trimmed.isEmpty() || trimmed.startsWith("#")) continue
+            return line.startsWith(" ") || line.startsWith("\t")
+        }
+        return false
+    }
 
     private fun preferences(context: Context): SharedPreferences =
         context.applicationContext.getSharedPreferences(

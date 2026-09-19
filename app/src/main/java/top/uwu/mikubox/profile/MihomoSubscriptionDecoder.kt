@@ -12,6 +12,9 @@ import java.nio.charset.StandardCharsets
 object MihomoSubscriptionDecoder {
 
     private const val PROXY_GROUP = "PROXY"
+    private val CONFIG_KEY = Regex(
+        "(?m)^(?:proxies|proxy-providers|proxy-groups|rules|rule-providers|dns|mixed-port|mode)\\s*:(?:\\s|$)",
+    )
 
     fun toMihomoConfig(context: Context, source: String): String {
         val text = source.trim().removePrefix("\uFEFF")
@@ -27,7 +30,7 @@ object MihomoSubscriptionDecoder {
             .filter(String::isNotEmpty)
             .toList()
         check(links.isNotEmpty()) { context.getString(R.string.error_subscription_empty) }
-        val proxies = links.mapNotNull(::parseLink)
+        val proxies = links.mapNotNull(::parseLink).dedupeNames()
         check(proxies.isNotEmpty()) {
             context.getString(R.string.error_no_compatible_proxy_links)
         }
@@ -46,7 +49,7 @@ object MihomoSubscriptionDecoder {
     }
 
     private fun isMihomoConfig(text: String): Boolean =
-        text.contains("proxies:") || text.contains("proxy-providers:") || text.contains("proxy-groups:")
+        CONFIG_KEY.containsMatchIn(text)
 
     private fun decodeBase64Subscription(text: String): String = runCatching {
         val normalized = text.replace("\\s".toRegex(), "")
@@ -72,7 +75,21 @@ object MihomoSubscriptionDecoder {
         val encodedOrUri = link.removePrefix("ss://")
         val fragment = encodedOrUri.substringAfter('#', "")
         val main = encodedOrUri.substringBefore('#').substringBefore('?')
-        val decoded = if (main.contains('@')) main else base64(main) ?: return null
+        // Legacy form: the whole "method:password@host:port" is Base64. SIP002
+        // form: only the "method:password" userinfo is Base64 (or plain but
+        // percent-encoded), while the host stays readable.
+        val decoded = if (main.contains('@')) {
+            val plainUserInfo = runCatching { Uri.decode(main.substringBeforeLast('@')) }
+                .getOrDefault(main.substringBeforeLast('@'))
+            val userInfo = if (plainUserInfo.contains(':')) {
+                plainUserInfo
+            } else {
+                base64(main.substringBeforeLast('@')) ?: plainUserInfo
+            }
+            "$userInfo@${main.substringAfterLast('@')}"
+        } else {
+            base64(main) ?: return null
+        }
         val credentials = decoded.substringBeforeLast('@', "")
         val address = decoded.substringAfterLast('@', "")
         val method = credentials.substringBefore(':')
@@ -80,7 +97,7 @@ object MihomoSubscriptionDecoder {
         val host = address.substringBeforeLast(':', "")
         val port = address.substringAfterLast(':', "").toIntOrNull() ?: return null
         if (method.isBlank() || password.isBlank() || host.isBlank()) return null
-        return ProxyYaml(name(fragment, host), "ss", listOf(
+        return ProxyYaml(name(decodeFragment(fragment), host), "ss", listOf(
             "server" to host, "port" to port.toString(), "cipher" to method, "password" to password,
         ))
     }
@@ -97,7 +114,11 @@ object MihomoSubscriptionDecoder {
     }
 
     private fun vmess(link: String): ProxyYaml? {
-        val objectJson = JSONObject(base64(link.removePrefix("vmess://")) ?: return null)
+        // One malformed line must not abort the whole import, so a payload that
+        // is not JSON just skips the node.
+        val objectJson = runCatching {
+            JSONObject(base64(link.removePrefix("vmess://")) ?: return null)
+        }.getOrNull() ?: return null
         val host = objectJson.optString("add")
         val port = objectJson.optString("port")
         val uuid = objectJson.optString("id")
@@ -221,8 +242,26 @@ object MihomoSubscriptionDecoder {
         Base64.decode(padded, Base64.DEFAULT).toString(StandardCharsets.UTF_8)
     }.getOrNull()
 
+    /**
+     * Fragment values from [Uri.getFragment] arrive already decoded — decoding
+     * them a second time corrupts (or crashes on) literal '%' names. Raw link
+     * substrings go through [decodeFragment] first at the call site.
+     */
     private fun name(fragment: String?, fallback: String): String =
-        fragment?.let { URLDecoder.decode(it, StandardCharsets.UTF_8.name()) }?.ifBlank { fallback } ?: fallback
+        fragment?.trim()?.ifBlank { null } ?: fallback
+
+    private fun decodeFragment(raw: String): String? =
+        raw.trim().takeIf { it.isNotEmpty() }
+            ?.let { runCatching { URLDecoder.decode(it, StandardCharsets.UTF_8.name()) }.getOrDefault(it) }
+
+    /** Mihomo rejects duplicate proxy names, so repeated nodes get a suffix. */
+    private fun List<ProxyYaml>.dedupeNames(): List<ProxyYaml> {
+        val counts = HashMap<String, Int>()
+        return map { proxy ->
+            val seen = counts.merge(proxy.name, 1) { _, added -> added }
+            if (seen == 1) proxy else proxy.copy(name = "${proxy.name} ${seen}")
+        }
+    }
 
     private data class ProxyYaml(val name: String, val type: String, val fields: List<Pair<String, String>>) {
         override fun toString(): String {

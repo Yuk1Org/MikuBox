@@ -22,7 +22,10 @@ object MihomoProfileStore {
         val subscriptionUrl: String? = null,
         val updateIntervalMinutes: Long = 0,
         val updateWhenConnectedOnly: Boolean = false,
+        /** Fetch subscription updates through the tunnel instead of directly. */
+        val updateThroughProxy: Boolean = false,
         val updatedAtMillis: Long = 0,
+        val pinned: Boolean = false,
     ) {
         val isSubscription: Boolean get() = !subscriptionUrl.isNullOrBlank()
     }
@@ -30,13 +33,16 @@ object MihomoProfileStore {
     private const val PREFS = "mihomo_profiles"
     private const val KEY_PROFILES = "profiles"
     private const val KEY_SELECTED = "selected"
-    private const val KEY_AUTOSTART = "autostart"
 
     fun profiles(context: Context): List<Profile> = synchronized(this) {
         val raw = prefs(context).getString(KEY_PROFILES, "[]") ?: "[]"
         runCatching {
             JSONArray(raw).let { array ->
-                List(array.length()) { index -> array.getJSONObject(index).toProfile(context) }
+                // One malformed entry must not wipe every profile: skip it and
+                // keep the rest readable.
+                (0 until array.length()).mapNotNull { index ->
+                    runCatching { array.getJSONObject(index).toProfile(context) }.getOrNull()
+                }
             }
         }.getOrDefault(emptyList())
     }
@@ -57,8 +63,10 @@ object MihomoProfileStore {
             config = config,
             updatedAtMillis = System.currentTimeMillis(),
         )
-        replaceProfiles(context, profiles(context) + profile)
-        if (selected(context) == null) select(context, profile.id)
+        synchronized(this) {
+            replaceProfiles(context, profiles(context) + profile)
+            if (selected(context) == null) select(context, profile.id)
+        }
         return profile
     }
 
@@ -68,6 +76,7 @@ object MihomoProfileStore {
         url: String,
         intervalMinutes: Long = 24 * 60,
         updateWhenConnectedOnly: Boolean = false,
+        updateThroughProxy: Boolean = false,
     ): Profile {
         require(url.isNotBlank()) { context.getString(R.string.error_subscription_url_blank) }
         val profile = Profile(
@@ -77,20 +86,38 @@ object MihomoProfileStore {
             subscriptionUrl = url,
             updateIntervalMinutes = intervalMinutes.coerceAtLeast(15),
             updateWhenConnectedOnly = updateWhenConnectedOnly,
+            updateThroughProxy = updateThroughProxy,
         )
-        replaceProfiles(context, profiles(context) + profile)
-        if (selected(context) == null) select(context, profile.id)
+        synchronized(this) {
+            replaceProfiles(context, profiles(context) + profile)
+            if (selected(context) == null) select(context, profile.id)
+        }
         MihomoSubscriptionUpdater.reconfigure(context)
         return profile
     }
 
     fun update(context: Context, profile: Profile) {
-        val updated = profiles(context).map { if (it.id == profile.id) profile else it }
-        require(updated.any { it.id == profile.id }) {
-            context.getString(R.string.error_unknown_profile, profile.id)
+        synchronized(this) {
+            val updated = profiles(context).map { if (it.id == profile.id) profile else it }
+            require(updated.any { it.id == profile.id }) {
+                context.getString(R.string.error_unknown_profile, profile.id)
+            }
+            replaceProfiles(context, updated)
         }
-        replaceProfiles(context, updated)
         MihomoSubscriptionUpdater.reconfigure(context)
+    }
+
+    /** Commit a download only if its source and content have not changed meanwhile. */
+    fun updateSubscription(context: Context, source: Profile, config: String) = synchronized(this) {
+        require(config.isNotBlank()) { context.getString(R.string.error_mihomo_config_blank) }
+        val current = profiles(context)
+        val latest = current.firstOrNull { it.id == source.id }
+            ?: error(context.getString(R.string.error_unknown_profile, source.id))
+        check(latest.subscriptionUrl == source.subscriptionUrl && latest.config == source.config &&
+            latest.updatedAtMillis == source.updatedAtMillis) { "Subscription changed during download" }
+        val updated = latest.copy(config = config, updatedAtMillis = System.currentTimeMillis())
+        replaceProfiles(context, current.map { if (it.id == updated.id) updated else it })
+        // Content refreshes do not change the periodic schedule.
     }
 
     fun select(context: Context, profileId: String) {
@@ -101,10 +128,30 @@ object MihomoProfileStore {
     }
 
     fun remove(context: Context, profileId: String) {
-        val remaining = profiles(context).filterNot { it.id == profileId }
-        replaceProfiles(context, remaining)
-        if (prefs(context).getString(KEY_SELECTED, null) == profileId) {
-            prefs(context).edit().putString(KEY_SELECTED, remaining.firstOrNull()?.id).commit()
+        synchronized(this) {
+            val remaining = profiles(context).filterNot { it.id == profileId }
+            replaceProfiles(context, remaining)
+            if (prefs(context).getString(KEY_SELECTED, null) == profileId) {
+                prefs(context).edit().putString(KEY_SELECTED, remaining.firstOrNull()?.id).commit()
+            }
+        }
+        MihomoSubscriptionUpdater.reconfigure(context)
+    }
+
+    /**
+     * Reorders profiles so [orderedIds] lead the list in that order; anything
+     * not mentioned keeps its previous relative position behind them. Called
+     * after a drag on the home list.
+     */
+    fun reorder(context: Context, orderedIds: List<String>) {
+        synchronized(this) {
+            val current = profiles(context)
+            val byId = current.associateBy { it.id }
+            val moved = orderedIds.distinct().mapNotNull { byId[it] }
+            if (moved.isEmpty()) return
+            val movedIds = moved.map { it.id }.toSet()
+            val rest = current.filterNot { it.id in movedIds }
+            replaceProfiles(context, moved + rest)
         }
         MihomoSubscriptionUpdater.reconfigure(context)
     }
@@ -122,7 +169,9 @@ object MihomoProfileStore {
         JSONObject().apply {
             put("version", 1)
             put("selected", prefs(context).getString(KEY_SELECTED, null))
-            put("autostart", autoStart(context))
+            // "Connect after device boot" is MikuRay's setting, and its own
+            // receiver and preference carry it; the backup only has to say which
+            // profile was selected.
             put("profiles", JSONArray().also { array -> profiles(context).forEach { array.put(it.toJson()) } })
         }.toString()
     }
@@ -135,15 +184,8 @@ object MihomoProfileStore {
         val selected = root.optString("selected").takeIf { id -> restored.any { it.id == id } }
         prefs(context).edit()
             .putString(KEY_SELECTED, selected ?: restored.firstOrNull()?.id)
-            .putBoolean(KEY_AUTOSTART, root.optBoolean("autostart", false))
             .commit()
         MihomoSubscriptionUpdater.reconfigure(context)
-    }
-
-    fun autoStart(context: Context): Boolean = prefs(context).getBoolean(KEY_AUTOSTART, false)
-
-    fun setAutoStart(context: Context, enabled: Boolean) {
-        prefs(context).edit().putBoolean(KEY_AUTOSTART, enabled).commit()
     }
 
     private fun replaceProfiles(context: Context, profiles: List<Profile>) = synchronized(this) {
@@ -161,7 +203,11 @@ object MihomoProfileStore {
         put("subscriptionUrl", subscriptionUrl)
         put("updateIntervalMinutes", updateIntervalMinutes)
         put("updateWhenConnectedOnly", updateWhenConnectedOnly)
+        // The subscription screen's "update through the proxy" switch: without a
+        // line here the choice was dropped on every save.
+        put("updateThroughProxy", updateThroughProxy)
         put("updatedAtMillis", updatedAtMillis)
+        put("pinned", pinned)
     }
 
     private fun JSONObject.toProfile(context: Context) = Profile(
@@ -171,7 +217,9 @@ object MihomoProfileStore {
         subscriptionUrl = optString("subscriptionUrl").ifBlank { null },
         updateIntervalMinutes = optLong("updateIntervalMinutes"),
         updateWhenConnectedOnly = optBoolean("updateWhenConnectedOnly"),
+        updateThroughProxy = optBoolean("updateThroughProxy"),
         updatedAtMillis = optLong("updatedAtMillis"),
+        pinned = optBoolean("pinned"),
     )
 
     private val DEFAULT_CONFIG = """

@@ -1,0 +1,258 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <com.miku.ray.widget.UwuPreferenceCategory
+        android:key="pref_category_vpn_settings"
+        android:title="@string/title_vpn_settings"
+        app:sectionIcon="@drawable/rmx_node_tree">
+
+        <androidx.preference.SwitchPreferenceCompat
+            android:icon="@drawable/rmx_toggle_line"
+            android:key="pref_ipv6_enabled"
+            android:summary="@string/summary_pref_ipv6_enabled"
+            android:title="@string/title_pref_ipv6_enabled"
+            app:layout="@layout/uwu_top_switch"
+            app:widgetLayout="@layout/uwu_widget_material_switch" />
+
+        <androidx.preference.SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:icon="@drawable/rmx_system_eye_line"
+            android:key="pref_keep_awake"
+            android:summary="@string/summary_pref_keep_awake"
+            android:title="@string/title_pref_keep_awake"
+            app:layout="@layout/uwu_mid_switch"
+            app:widgetLayout="@layout/uwu_widget_material_switch" />
+
+        <androidx.preference.SwitchPreferenceCompat
+            android:icon="@drawable/rmx_global_line"
+            android:key="pref_prefer_ipv6"
+            android:summary="@string/summary_pref_prefer_ipv6"
+            android:title="@string/title_pref_prefer_ipv6"
+            app:layout="@layout/uwu_mid_switch"
+            app:widgetLayout="@layout/uwu_widget_material_switch" />
+
+        <androidx.preference.SwitchPreferenceCompat
+            android:icon="@drawable/rmx_server_line"
+            android:key="pref_local_dns_enabled"
+            android:summary="@string/summary_pref_local_dns_enabled"
+            android:title="@string/title_pref_local_dns_enabled"
+            app:layout="@layout/uwu_mid_switch"
+            app:widgetLayout="@layout/uwu_widget_material_switch" />
+
+        <androidx.preference.SwitchPreferenceCompat
+            android:icon="@drawable/rmx_server_line"
+            android:key="pref_fake_dns_enabled"
+            android:summary="@string/summary_pref_fake_dns_enabled"
+            android:title="@string/title_pref_fake_dns_enabled"
+            app:layout="@layout/uwu_mid_switch"
+            app:widgetLayout="@layout/uwu_widget_material_switch" />
+
+        <EditTextPreference
+            android:defaultValue="198.18.0.0/15"
+            android:dialogMessage="@string/summary_pref_fake_dns_ip_pool"
+            android:icon="@drawable/rmx_global_line"
+            android:key="pref_fake_dns_ip_pool"
+            android:summary="198.18.0.0/15"
+            android:title="@string/title_pref_fake_dns_ip_pool"
+            app:dialogIcon="@drawable/rmx_global_line"
+            app:layout="@layout/uwu_mid" />
+
+        <androidx.preference.SwitchPreferenceCompat
+            android:icon="@drawable/rmx_global_line"
+            android:key="pref_append_http_proxy"
+            android:summary="@string/summary_pref_append_http_proxy"
+            android:title="@string/title_pref_append_http_proxy"
+            app:layout="@layout/uwu_mid_switch"
+            app:widgetLayout="@layout/uwu_widget_material_switch" />
+
+        <EditTextPreference
+            android:dialogMessage="@string/title_pref_vpn_dns_tip"
+            android:icon="@drawable/rmx_server_line"
+            android:key="pref_vpn_dns"
+            android:summary="@string/summary_pref_remote_dns"
+            android:title="@string/title_pref_vpn_dns"
+            app:dialogIcon="@drawable/rmx_server_line"
+            app:layout="@layout/uwu_mid" />
+
+        <ListPreference
+            android:defaultValue="1"
+            android:entries="@array/vpn_bypass_lan"
+            android:entryValues="@array/vpn_bypass_lan_value"
+            android:icon="@drawable/rmx_node_tree"
+            android:key="pref_vpn_bypass_lan"
+            android:summary="%s"
+            android:title="@string/title_pref_vpn_bypass_lan"
+            app:dialogIcon="@drawable/rmx_node_tree"
+            app:layout="@layout/uwu_mid" />
+
+        <ListPreference
+            android:defaultValue="0"
+            android:entries="@array/vpn_interface_address"
+            android:entryValues="@array/vpn_interface_address_value"
+            android:icon="@drawable/rmx_wifi_line"
+            android:key="pref_vpn_interface_address_config_index"
+            android:summary="%s"
+            android:title="@string/title_pref_vpn_interface_address"
+            app:dialogIcon="@drawable/rmx_wifi_line"
+            app:layout="@layout/uwu_mid" />
+
+        <EditTextPreference
+            android:dialogMessage="@string/title_pref_vpn_mtu_tip"
+            android:icon="@drawable/rmx_design_ruler_line"
+            android:inputType="number"
+            android:key="pref_vpn_mtu"
+            android:summary="1500"
+            android:title="@string/title_pref_vpn_mtu"
+            app:dialogIcon="@drawable/rmx_design_ruler_line"
+            app:layout="@layout/uwu_mid" />
+
+        <EditTextPreference
+            android:defaultValue="30"
+            android:dialogMessage="@string/title_pref_tcp_keepalive_idle_tip"
+            android:icon="@drawable/rmx_time_line"
+            android:inputType="number"
+            android:key="pref_tcp_keepalive_idle"
+            android:title="@string/title_pref_tcp_keepalive_idle"
+            app:dialogIcon="@drawable/rmx_time_line"
+            app:layout="@layout/uwu_mid" />
+
+        <EditTextPreference
+            android:defaultValue="60"
+            android:dialogMessage="@string/title_pref_ws_heartbeat_period_tip"
+            android:icon="@drawable/rmx_time_line"
+            android:inputType="number"
+            android:key="pref_ws_heartbeat_period"
+            android:title="@string/title_pref_ws_heartbeat_period"
+            app:dialogIcon="@drawable/rmx_time_line"
+            app:layout="@layout/uwu_mid" />
+
+        <Preference
+            android:icon="@drawable/rmx_apps_line"
+            android:key="pref_navigate_per_app_proxy_settings"
+            android:summary="@string/summary_navigate_per_app_proxy_settings"
+            android:title="@string/per_app_proxy_settings"
+            app:layout="@layout/uwu_bot" />
+
+    </com.miku.ray.widget.UwuPreferenceCategory>
+
+    <!--
+        Hidden in this app: the Hev TUN group and the root-mode switch describe a
+        different way of running the tunnel (hev-socks5-tunnel, or a root-based
+        transparent proxy) and the mihomo core has no counterpart — the tunnel is
+        always the VPN service. Showing a switch that cannot do anything is worse
+        than not showing it. LAN sharing, which *is* wired to the core's
+        `allow-lan`, stays.
+    -->
+    <com.miku.ray.widget.UwuPreferenceCategory
+        android:key="pref_category_hev_tunnel"
+        android:title="@string/title_category_hev_tunnel"
+        app:isPreferenceVisible="false"
+        app:sectionIcon="@drawable/rmx_global_line">
+
+        <androidx.preference.SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:icon="@drawable/rmx_toggle_line"
+            android:key="pref_use_hev_tunnel_v2"
+            android:summary="@string/summary_pref_use_hev_tunnel"
+            android:title="@string/title_pref_use_hev_tunnel"
+            app:layout="@layout/uwu_top_switch"
+            app:widgetLayout="@layout/uwu_widget_material_switch" />
+
+        <ListPreference
+            android:defaultValue="off"
+            android:entries="@array/hev_tunnel_icmp"
+            android:entryValues="@array/hev_tunnel_icmp"
+            android:icon="@drawable/rmx_global_line"
+            android:key="pref_hev_tunnel_icmp"
+            android:summary="@string/summary_pref_hev_tunnel_icmp"
+            android:title="@string/title_pref_hev_tunnel_icmp"
+            app:dialogIcon="@drawable/rmx_global_line"
+            app:layout="@layout/uwu_mid" />
+
+        <ListPreference
+            android:defaultValue="udp"
+            android:entries="@array/hev_tunnel_udp_mode"
+            android:entryValues="@array/hev_tunnel_udp_mode"
+            android:icon="@drawable/rmx_global_line"
+            android:key="pref_hev_tunnel_udp_mode"
+            android:summary="@string/summary_pref_hev_tunnel_udp_mode"
+            android:title="@string/title_pref_hev_tunnel_udp_mode"
+            app:dialogIcon="@drawable/rmx_global_line"
+            app:layout="@layout/uwu_mid" />
+
+        <EditTextPreference
+            android:dialogMessage="@string/title_pref_hev_tunnel_udp_address_tip"
+            android:icon="@drawable/rmx_global_line"
+            android:key="pref_hev_tunnel_udp_address"
+            android:title="@string/title_pref_hev_tunnel_udp_address"
+            app:dialogIcon="@drawable/rmx_global_line"
+            app:layout="@layout/uwu_mid" />
+
+        <ListPreference
+            android:defaultValue="warn"
+            android:entries="@array/hev_tunnel_loglevel"
+            android:entryValues="@array/hev_tunnel_loglevel"
+            android:icon="@drawable/rmx_file_text_line"
+            android:key="pref_hev_tunnel_loglevel"
+            android:summary="%s"
+            android:title="@string/title_pref_hev_tunnel_loglevel"
+            app:dialogIcon="@drawable/rmx_file_text_line"
+            app:layout="@layout/uwu_mid" />
+
+        <EditTextPreference
+            android:dialogMessage="@string/title_pref_hev_tunnel_rw_timeout_tip"
+            android:icon="@drawable/rmx_time_line"
+            android:key="pref_hev_tunnel_rw_timeout_v2"
+            android:summary="300,60"
+            android:title="@string/title_pref_hev_tunnel_rw_timeout"
+            app:dialogIcon="@drawable/rmx_time_line"
+            app:layout="@layout/uwu_mid" />
+
+        <androidx.preference.SwitchPreferenceCompat
+            android:defaultValue="true"
+            android:icon="@drawable/rmx_flashlight_line"
+            android:key="pref_hev_tunnel_tcp_fastopen"
+            android:summary="@string/summary_pref_hev_tunnel_tcp_fastopen"
+            android:title="@string/title_pref_hev_tunnel_tcp_fastopen"
+            app:layout="@layout/uwu_mid_switch"
+            app:widgetLayout="@layout/uwu_widget_material_switch" />
+
+        <androidx.preference.SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:icon="@drawable/rmx_development_git_merge_line"
+            android:key="pref_hev_tunnel_pipeline"
+            android:summary="@string/summary_pref_hev_tunnel_pipeline"
+            android:title="@string/title_pref_hev_tunnel_pipeline"
+            app:layout="@layout/uwu_bot_switch"
+            app:widgetLayout="@layout/uwu_widget_material_switch" />
+
+    </com.miku.ray.widget.UwuPreferenceCategory>
+
+    <com.miku.ray.widget.UwuPreferenceCategory
+        android:key="pref_category_root_mode"
+        android:title="@string/title_pref_root_lan_sharing">
+
+        <androidx.preference.SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:icon="@drawable/rmx_key_line"
+            android:key="pref_root_mode_enabled"
+            android:summary="@string/summary_pref_root_mode"
+            android:title="@string/title_pref_root_mode"
+            app:isPreferenceVisible="false"
+            app:layout="@layout/uwu_top_switch"
+            app:widgetLayout="@layout/uwu_widget_material_switch" />
+
+        <androidx.preference.SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:icon="@drawable/rmx_share_line"
+            android:key="pref_root_lan_sharing"
+            android:summary="@string/summary_pref_root_lan_sharing"
+            android:title="@string/title_pref_root_lan_sharing"
+            app:layout="@layout/uwu_bot_switch"
+            app:widgetLayout="@layout/uwu_widget_material_switch" />
+
+    </com.miku.ray.widget.UwuPreferenceCategory>
+
+</PreferenceScreen>

@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <com.miku.ray.widget.UwuPreferenceCategory
+        android:key="pref_category_fragment_settings"
+        android:title="@string/title_fragment_settings"
+        app:sectionIcon="@drawable/rmx_design_scissors_cut_line">
+
+        <androidx.preference.SwitchPreferenceCompat
+            android:icon="@drawable/rmx_toggle_line"
+            android:key="pref_fragment_enabled"
+            android:title="@string/title_pref_fragment_enabled"
+            app:layout="@layout/uwu_top_switch"
+            app:widgetLayout="@layout/uwu_widget_material_switch" />
+
+        <EditTextPreference
+            android:dialogMessage="@string/title_pref_fragment_length_tip"
+            android:icon="@drawable/rmx_hashtag"
+            android:key="pref_fragment_length"
+            android:summary="50-100"
+            android:title="@string/title_pref_fragment_length"
+            app:dialogIcon="@drawable/rmx_hashtag"
+            app:layout="@layout/uwu_mid" />
+
+        <EditTextPreference
+            android:dialogMessage="@string/title_pref_fragment_interval_tip"
+            android:icon="@drawable/rmx_hashtag"
+            android:key="pref_fragment_interval"
+            android:summary="10-20"
+            android:title="@string/title_pref_fragment_interval"
+            app:dialogIcon="@drawable/rmx_hashtag"
+            app:layout="@layout/uwu_mid" />
+
+        <EditTextPreference
+            android:icon="@drawable/rmx_hashtag"
+            android:key="pref_fragment_maxsplit"
+            android:summary="10"
+            android:title="@string/title_pref_fragment_maxsplit"
+            app:dialogIcon="@drawable/rmx_hashtag"
+            app:layout="@layout/uwu_mid" />
+
+        <ListPreference
+            android:defaultValue="tlshello"
+            android:entries="@array/fragment_packets"
+            android:entryValues="@array/fragment_packets"
+            android:icon="@drawable/rmx_eth_line"
+            android:key="pref_fragment_packets"
+            android:summary="%s"
+            android:title="@string/title_pref_fragment_packets"
+            app:dialogIcon="@drawable/rmx_eth_line"
+            app:layout="@layout/uwu_bot" />
+
+    </com.miku.ray.widget.UwuPreferenceCategory>
+
+</PreferenceScreen>

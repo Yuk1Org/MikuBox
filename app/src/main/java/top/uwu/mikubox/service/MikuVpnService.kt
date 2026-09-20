@@ -18,6 +18,7 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.miku.ray.contracts.ServiceControl
 import com.miku.ray.core.CoreServiceManager
+import com.miku.ray.handler.TrafficController
 import top.uwu.mikubox.R
 import top.uwu.mikubox.core.MihomoConfigStore
 import top.uwu.mikubox.core.CoreOverrides
@@ -265,6 +266,7 @@ class MikuVpnService : VpnService(), ServiceControl {
                     // The vendored screens hear about the tunnel the same way they
                     // used to hear about MikuRay's own service.
                     CoreServiceManager.announceTunnelStarted(this@MikuVpnService)
+                    TrafficController.start()
                     checkpointHandler.post(rowTrafficRefresh)
                     checkpointHandler.post(trafficCheckpoint)
                     acquireWakeLock()
@@ -398,6 +400,7 @@ class MikuVpnService : VpnService(), ServiceControl {
     }
 
     private fun stopVpn() {
+        TrafficController.stop()
         stopCore()
         stopForegroundCompat()
         stopSelf()

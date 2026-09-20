@@ -63,6 +63,9 @@ object MikuRayCoreBridge : MikuCoreBridge.Impl {
     override fun restart(): Boolean {
         val context = MikuRayBridgeContext.application ?: return false
         if (!VpnController.isRunning) return false
+        // Restart produces new counters in the core just like start/stop, so
+        // the delta tracker must start over or the next tick reads stale values.
+        MihomoTrafficDelta.reset()
         VpnController.restart(context)
         return true
     }

@@ -68,6 +68,11 @@ class CountryCodeTestService : Service() {
         ).build()
     }
 
+    override fun onCreate() {
+        super.onCreate()
+        com.miku.ray.MikuDiagnostics.impl?.attach(this)
+    }
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
@@ -77,7 +82,12 @@ class CountryCodeTestService : Service() {
         sendFinish(activeRequestId)
         activeRequestId = ""
         NotificationHelper.stopForeground(this)
+        com.miku.ray.MikuDiagnostics.impl?.detach(this)
         super.onDestroy()
+        if (com.miku.ray.MikuDiagnostics.impl != null) {
+            // This service is declared in its own process, just like CoreTestService.
+            android.os.Handler(mainLooper).postDelayed({ android.os.Process.killProcess(android.os.Process.myPid()) }, 500)
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -145,7 +155,7 @@ class CountryCodeTestService : Service() {
                                 LogUtil.e(AppConfig.TAG, "Country-code probe failed for $guid", e)
                                 null
                             }
-                            if (!cancelled.get()) {
+                            if (!cancelled.get() && activeRequestId == requestId) {
                                 MmkvManager.encodeServerCountryCode(guid, countryCode ?: AppConfig.COUNTRY_CODE_TEST_FAILED)
                             }
                             synchronized(progressLock) {
@@ -185,7 +195,10 @@ class CountryCodeTestService : Service() {
 
     private fun lookupThroughProfile(guid: String): String? {
         // This worker must never start/stop the application's single VPN core.
-        if (com.miku.ray.MikuProfiles.impl != null) return null
+        com.miku.ray.MikuProfiles.impl?.let { profiles ->
+            val raw = profiles.get(guid)?.config ?: return null
+            return com.miku.ray.MikuDiagnostics.impl?.country(raw)
+        }
         val result = CoreConfigManager.getV2rayConfig4Speedtest(this, guid)
         if (!result.status || result.content.isBlank()) return null
 

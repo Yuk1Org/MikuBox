@@ -21,6 +21,7 @@ class MikuApp : com.miku.ray.AngApplication() {
         // Hands the vendored MikuRay layer the mihomo side of its core seam, so
         // its connect button drives MikuBox's own tunnel.
         top.uwu.mikubox.core.MikuRayBridgeContext.attach(this)
+        com.miku.ray.MikuDiagnostics.impl = top.uwu.mikubox.core.NativeProfileProbe
         com.miku.ray.MikuCoreBridge.install(top.uwu.mikubox.core.MikuRayCoreBridge)
         // The vendored subscription screens read and write this app's profiles
         // through the same seam.
@@ -35,6 +36,7 @@ class MikuApp : com.miku.ray.AngApplication() {
             override fun proxyCredentials(): Pair<String, String>? = top.uwu.mikubox.core.CoreOverrides.proxyCredentials(this@MikuApp)
             override fun mixedPort() = top.uwu.mikubox.core.MihomoCoreSettings.listeningPort(this@MikuApp)
         }
+        if (top.uwu.mikubox.core.NativeProfileProbe.isProbeProcess(this)) return
         // Scheduling does not gate the first frame. The home screen refreshes
         // its persisted profile mirror on IO when resumed, instead of parsing
         // every configuration here and repeating it on the main thread there.

@@ -200,6 +200,10 @@ class RealPingWorkerService(
     }
 
     private suspend fun startRealPing(guid: String): Long {
+        com.miku.ray.MikuProfiles.impl?.let { profiles ->
+            val raw = profiles.get(guid)?.config ?: return -1L
+            return com.miku.ray.MikuDiagnostics.impl?.delay(raw, SettingsManager.getDelayTestUrl()) ?: -1L
+        }
         val config = MmkvManager.decodeServerConfig(guid) ?: return -1L
         if (!config.configType.isComplexType()
             && config.configType != EConfigType.HYSTERIA2
@@ -227,6 +231,10 @@ class RealPingWorkerService(
     }
 
     private fun startTcping(guid: String): Long {
+        com.miku.ray.MikuProfiles.impl?.let { profiles ->
+            val raw = profiles.get(guid)?.config ?: return -1L
+            return com.miku.ray.MikuDiagnostics.impl?.tcp(raw) ?: -1L
+        }
         val config = MmkvManager.decodeServerConfig(guid) ?: return -1L
         if (!config.configType.isComplexType()
             && config.configType != EConfigType.HYSTERIA2

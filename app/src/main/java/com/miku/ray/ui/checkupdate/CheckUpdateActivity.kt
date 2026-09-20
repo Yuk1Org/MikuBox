@@ -8,7 +8,6 @@ import com.miku.ray.util.showBlur
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.appbar.MaterialToolbar
 import com.miku.ray.AppConfig
-import com.miku.ray.BuildConfig
 import com.miku.ray.R
 import com.miku.ray.databinding.ActivityCheckUpdateBinding
 import com.miku.ray.dto.CheckUpdateResult
@@ -45,7 +44,10 @@ class CheckUpdateActivity : BaseActivity() {
         }
         binding.checkPreRelease.isChecked = MmkvManager.decodeSettingsBool(AppConfig.PREF_CHECK_UPDATE_PRE_RELEASE, false)
 
-        "v${BuildConfig.VERSION_NAME} (${CoreNativeManager.getLibVersion()})".also {
+        // PackageManager is the authority for the installed version; compiled-in
+        // constants live in the vendored library module and can lag the build.
+        val installedName = packageManager.getPackageInfo(packageName, 0).versionName ?: ""
+        "v$installedName (${CoreNativeManager.getLibVersion()})".also {
             binding.tvVersion.text = it
         }
 
@@ -57,7 +59,7 @@ class CheckUpdateActivity : BaseActivity() {
 
         lifecycleScope.launch {
             try {
-                val result = UpdateCheckerManager.checkForUpdate(includePreRelease)
+                val result = UpdateCheckerManager.checkForUpdate(this@CheckUpdateActivity, includePreRelease)
                 if (result.hasUpdate) {
                     showUpdateDialog(result)
                 } else {

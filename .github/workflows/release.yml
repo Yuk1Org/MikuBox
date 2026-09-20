@@ -6,7 +6,6 @@ on:
   push:
     tags:
       - 'v*'
-      - 'UwU-*'
 
 permissions:
   contents: write
@@ -52,9 +51,16 @@ jobs:
           # The published build reports the tag as its version (minus the v),
           # and the CI run number keeps versionCode monotonically growing.
           VERSION_NAME="${GITHUB_REF_NAME#v}"
+          VERSION_CODE=$((1000 + ${{ github.run_number }}))
+          echo "VERSION_NAME=$VERSION_NAME VERSION_CODE=$VERSION_CODE"
           ./gradlew :app:assembleRelease --no-daemon --stacktrace \
             -PversionNameOverride="$VERSION_NAME" \
-            -PversionCodeOverride=$((1000 + ${{ github.run_number }}))
+            -PversionCodeOverride="$VERSION_CODE"
+          # The updater compares the release's version code with the installed
+          # one; publish it as a tiny asset next to the APKs.
+          printf '{"versionCode": %d, "versionName": "%s"}\n' \
+            "$VERSION_CODE" "$VERSION_NAME" \
+            > app/build/outputs/apk/release/version.json
         env:
           KEYSTORE_PASS: ${{ secrets.KEYSTORE_PASS }}
           ALIAS_NAME: ${{ secrets.ALIAS_NAME }}
@@ -73,4 +79,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
-          files: app/build/outputs/apk/release/mikubox-*.apk
+          files: |
+            app/build/outputs/apk/release/mikubox-*.apk
+            app/build/outputs/apk/release/version.json

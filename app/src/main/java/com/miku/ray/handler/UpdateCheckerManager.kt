@@ -1,10 +1,12 @@
 package com.miku.ray.handler
 
+import android.content.Context
 import android.os.Build
 import com.miku.ray.AppConfig
 import com.miku.ray.BuildConfig
 import com.miku.ray.dto.CheckUpdateResult
 import com.miku.ray.dto.GitHubRelease
+import com.miku.ray.dto.ReleaseVersionFile
 import com.miku.ray.dto.UrlContentRequest
 import com.miku.ray.extension.concatUrl
 import com.miku.ray.util.HttpUtil
@@ -14,7 +16,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 object UpdateCheckerManager {
-    suspend fun checkForUpdate(includePreRelease: Boolean = false): CheckUpdateResult = withContext(Dispatchers.IO) {
+
+    /** The release's version.json asset, written by the release workflow. */
+    private const val VERSION_ASSET = "version.json"
+
+    suspend fun checkForUpdate(context: Context, includePreRelease: Boolean = false): CheckUpdateResult = withContext(Dispatchers.IO) {
         val url = if (includePreRelease) {
             AppConfig.APP_API_URL
         } else {
@@ -56,68 +62,73 @@ object UpdateCheckerManager {
         }
 
         val latestVersion = latestRelease.tagName.removePrefix("v")
+        val (installedVersion, installedCode) = installedPackageVersion(context)
         LogUtil.i(
             AppConfig.TAG,
-            "Found new version: $latestVersion (current: ${BuildConfig.VERSION_NAME})"
+            "Found release: $latestVersion (current: $installedVersion/$installedCode)"
         )
 
-        return@withContext if (compareVersions(latestVersion, BuildConfig.VERSION_NAME) > 0) {
-            val downloadUrl = getDownloadUrl(latestRelease, Build.SUPPORTED_ABIS[0])
-            CheckUpdateResult(
-                hasUpdate = true,
-                latestVersion = latestVersion,
-                releaseNotes = latestRelease.body,
-                releaseUrl = latestRelease.htmlUrl.ifBlank {
-                    AppConfig.APP_API_URL.concatUrl("latest")
-                },
-                downloadUrl = downloadUrl,
-                isPreRelease = latestRelease.prerelease
-            )
-        } else {
-            CheckUpdateResult(hasUpdate = false)
+        // Updates are decided by the release's version code (version.json),
+        // not by parsing version names; the name compare is only the fallback
+        // for a release published without the asset.
+        val latestCode = latestRelease.assets.firstOrNull { it.name == VERSION_ASSET }
+            ?.let { asset -> fetchAsset(asset.browserDownloadUrl, proxyUsername, proxyPassword) }
+            ?.let { JsonUtil.fromJsonSafe(it, ReleaseVersionFile::class.java)?.versionCode }
+        val hasUpdate = when (latestCode) {
+            null -> compareVersions(latestVersion, installedVersion) > 0
+            else -> latestCode > installedCode
         }
+        if (!hasUpdate) {
+            return@withContext CheckUpdateResult(hasUpdate = false)
+        }
+
+        return@withContext CheckUpdateResult(
+            hasUpdate = true,
+            latestVersion = latestVersion,
+            releaseNotes = latestRelease.body,
+            releaseUrl = latestRelease.htmlUrl.ifBlank {
+                AppConfig.APP_API_URL.concatUrl("latest")
+            },
+            downloadUrl = runCatching { getDownloadUrl(latestRelease, Build.SUPPORTED_ABIS[0]) }.getOrNull(),
+            isPreRelease = latestRelease.prerelease
+        )
     }
 
-    // Version tags follow vX.XX.X-NAME-PATCH — the leading triple is the
-    // major version, NAME labels the release line, and the trailing number
-    // is the small patch version. The triple decides first; a different
-    // name on an equal triple is a newer line by definition (GitHub only
-    // reports its latest release here); the patch orders within one name.
-    // Anything malformed falls back to comparing the digit runs in order,
-    // which also handles this app's older "UwU-1.0.0" style.
-    private val versionPattern = Regex("v?([0-9]+(?:\\.[0-9]+)*)-([A-Za-z]+)-([0-9]+)")
-    private val digitRuns = Regex("\\d+")
+    /** The installed app's own version, straight from PackageManager: it is the
+     *  authority regardless of what any compiled-in constant says. */
+    private fun installedPackageVersion(context: Context): Pair<String, Long> {
+        val info = context.packageManager.getPackageInfo(context.packageName, 0)
+        val code = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) info.longVersionCode
+        else info.versionCode.toLong()
+        return (info.versionName ?: "") to code
+    }
 
+    private fun fetchAsset(url: String, proxyUsername: String?, proxyPassword: String?): String? {
+        HttpUtil.getUrlContent(UrlContentRequest(url = url, timeout = 5000))?.let { return it }
+        return HttpUtil.getUrlContent(
+            UrlContentRequest(
+                url = url,
+                timeout = 5000,
+                httpPort = SettingsManager.getHttpPort(),
+                proxyUsername = proxyUsername,
+                proxyPassword = proxyPassword
+            )
+        )
+    }
+
+    /** Fallback for releases without version.json: compare the digit runs of
+     *  the tag and the installed version name ("v1.2.3" vs "1.2.3" works). */
     private fun compareVersions(version1: String, version2: String): Int {
-        val match1 = versionPattern.matchEntire(version1.trim())
-        val match2 = versionPattern.matchEntire(version2.trim())
-        if (match1 == null || match2 == null) {
-            val runs1 = digitRuns.findAll(version1).map { it.value.toLong() }.toList()
-            val runs2 = digitRuns.findAll(version2).map { it.value.toLong() }.toList()
-            for (i in 0 until maxOf(runs1.size, runs2.size)) {
-                val a = runs1.getOrElse(i) { 0L }
-                val b = runs2.getOrElse(i) { 0L }
-                if (a != b) return if (a < b) -1 else 1
-            }
-            return 0
-        }
-
-        fun triple(version: String) = version.split(".").map { it.toLong() }
-        val triple1 = triple(match1.groupValues[1])
-        val triple2 = triple(match2.groupValues[1])
-        for (i in 0 until maxOf(triple1.size, triple2.size)) {
-            val a = triple1.getOrElse(i) { 0L }
-            val b = triple2.getOrElse(i) { 0L }
+        val runs = Regex("\\d+")
+        fun digits(version: String) = runs.findAll(version).map { it.value.toLong() }.toList()
+        val v1 = digits(version1)
+        val v2 = digits(version2)
+        for (i in 0 until maxOf(v1.size, v2.size)) {
+            val a = v1.getOrElse(i) { 0L }
+            val b = v2.getOrElse(i) { 0L }
             if (a != b) return if (a < b) -1 else 1
         }
-
-        val name1 = match1.groupValues[2]
-        val name2 = match2.groupValues[2]
-        if (!name1.equals(name2, ignoreCase = true)) return 1
-
-        val patch1 = match1.groupValues[3].toLong()
-        val patch2 = match2.groupValues[3].toLong()
-        return patch1.compareTo(patch2)
+        return 0
     }
 
     private fun getDownloadUrl(release: GitHubRelease, abi: String): String {

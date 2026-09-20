@@ -35,12 +35,17 @@ android {
 
         // MikuRay's sources read these from its module's BuildConfig and R.
         // A library has no applicationId or version of its own, so the values
-        // mirror the app module's — the about screen prints them.
+        // mirror the app module's — the about screen prints them. They must
+        // honour the same -PversionNameOverride/-PversionCodeOverride the app
+        // module reads, or a tagged build shows the checked-in version while
+        // reporting itself as the tag.
+        val bannerVersionName = (findProperty("versionNameOverride") as? String?)?.takeIf { it.isNotBlank() } ?: "UwU-1.0.0"
+        val bannerVersionCode = (findProperty("versionCodeOverride") as? String?)?.toIntOrNull() ?: 10
         buildConfigField("String", "APPLICATION_ID", "\"top.uwu.mikubox\"")
-        buildConfigField("String", "VERSION_NAME", "\"UwU-1.0.0\"")
-        buildConfigField("int", "VERSION_CODE", "10")
-        resValue("string", "uwu_version_name", "UwU-1.0.0")
-        resValue("string", "uwu_version_code", "10")
+        buildConfigField("String", "VERSION_NAME", "\"$bannerVersionName\"")
+        buildConfigField("int", "VERSION_CODE", "$bannerVersionCode")
+        resValue("string", "uwu_version_name", bannerVersionName)
+        resValue("string", "uwu_version_code", "$bannerVersionCode")
         resValue("string", "uwu_package_name", "top.uwu.mikubox")
         resValue("string", "uwu_build_date", "2026-09-19")
     }

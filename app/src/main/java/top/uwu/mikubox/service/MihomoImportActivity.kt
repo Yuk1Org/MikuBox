@@ -15,7 +15,14 @@ class MihomoImportActivity : Activity() {
             // and parse off the main thread, and finish() only fires once the
             // import settles so the transient URI grant outlives the work.
             Thread {
-                runCatching { MihomoProfileImporter.importUri(this, data) }
+                val result = runCatching {
+                    MihomoProfileImporter.importUri(this, data)
+                    top.uwu.mikubox.core.MikuRayProfiles.sync()
+                }
+                runOnUiThread {
+                    android.widget.Toast.makeText(this, result.exceptionOrNull()?.message
+                        ?: getString(com.miku.ray.R.string.toast_success), android.widget.Toast.LENGTH_LONG).show()
+                }
                 runOnUiThread { finish() }
             }.start()
         } else {

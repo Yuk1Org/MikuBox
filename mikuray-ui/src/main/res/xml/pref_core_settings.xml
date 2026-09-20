@@ -1,59 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<PreferenceScreen
-    xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto">
-
-    <com.miku.ray.widget.UwuPreferenceCategory
-        android:key="pref_category_core_settings"
-        android:title="@string/title_core_settings"
-        app:sectionIcon="@drawable/rmx_settings_line">
-
-        <androidx.preference.SwitchPreferenceCompat
-            android:defaultValue="true"
-            android:icon="@drawable/rmx_system_search_eye_line"
-            android:key="pref_sniffing_enabled"
-            android:summary="@string/summary_pref_sniffing_enabled"
-            android:title="@string/title_pref_sniffing_enabled"
-            app:layout="@layout/uwu_top_switch"
-            app:widgetLayout="@layout/uwu_widget_material_switch" />
-
-        <androidx.preference.SwitchPreferenceCompat
-            android:defaultValue="false"
-            android:icon="@drawable/rmx_router_line"
-            android:key="pref_route_only_enabled"
-            android:summary="@string/summary_pref_route_only_enabled"
-            android:title="@string/title_pref_route_only_enabled"
-            app:layout="@layout/uwu_mid_switch"
-            app:widgetLayout="@layout/uwu_widget_material_switch" />
-
-        <androidx.preference.SwitchPreferenceCompat
-            android:defaultValue="true"
-            android:icon="@drawable/rmx_router_line"
-            android:key="pref_enable_local_proxy"
-            android:summary="@string/summary_pref_enable_local_proxy"
-            android:title="@string/title_pref_enable_local_proxy"
-            app:layout="@layout/uwu_mid_switch"
-            app:widgetLayout="@layout/uwu_widget_material_switch" />
-
-        <androidx.preference.SwitchPreferenceCompat
-            android:defaultValue="false"
-            android:icon="@drawable/rmx_share_line"
-            android:key="pref_proxy_sharing_enabled"
-            android:summary="@string/summary_pref_proxy_sharing_enabled"
-            android:title="@string/title_pref_proxy_sharing_enabled"
-            app:layout="@layout/uwu_mid_switch"
-            app:widgetLayout="@layout/uwu_widget_material_switch" />
-
-        <EditTextPreference
-            android:icon="@drawable/rmx_hashtag"
-            android:inputType="number"
-            android:key="pref_socks_port"
-            android:summary="10808"
-            android:title="@string/title_pref_socks_port"
-            app:dialogIcon="@drawable/rmx_hashtag"
-            app:layout="@layout/uwu_mid" />
-
-        <androidx.preference.SwitchPreferenceCompat
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
+<com.miku.ray.widget.UwuPreferenceCategory android:key="pref_category_core_settings" android:title="@string/title_core_settings" app:sectionIcon="@drawable/rmx_settings_line">
+<ListPreference android:icon="@drawable/rmx_server_line" android:key="sniffer.enable" android:title="@string/mihomo_setting_sniffer_enable" app:layout="@layout/uwu_mid" />
+<ListPreference android:icon="@drawable/rmx_server_line" android:key="sniffer.override-destination" android:title="@string/mihomo_setting_sniffer_override_destination" app:layout="@layout/uwu_mid" />
+<androidx.preference.SwitchPreferenceCompat android:icon="@drawable/rmx_server_line" android:key="allow-lan" android:title="@string/mihomo_setting_allow_lan" app:layout="@layout/uwu_mid_switch" app:widgetLayout="@layout/uwu_widget_material_switch" />
+<EditTextPreference android:icon="@drawable/rmx_server_line" android:key="mixed-port" android:title="@string/mihomo_setting_mixed_port" app:layout="@layout/uwu_mid" />
+<androidx.preference.SwitchPreferenceCompat
             android:defaultValue="false"
             android:icon="@drawable/rmx_toggle_line"
             android:key="pref_dynamic_socks_port"
@@ -61,85 +13,25 @@
             android:title="@string/title_pref_dynamic_socks_port"
             app:layout="@layout/uwu_mid_switch"
             app:widgetLayout="@layout/uwu_widget_material_switch" />
+<EditTextPreference android:icon="@drawable/rmx_server_line" android:key="dns.nameserver" android:title="@string/mihomo_setting_dns_nameserver" app:layout="@layout/uwu_mid" />
+<EditTextPreference android:icon="@drawable/rmx_server_line" android:key="dns.direct-nameserver" android:title="@string/mihomo_setting_dns_direct_nameserver" app:layout="@layout/uwu_mid" />
+<EditTextPreference android:icon="@drawable/rmx_server_line" android:key="dns.default-nameserver" android:title="@string/mihomo_setting_dns_default_nameserver" app:layout="@layout/uwu_mid" />
+<EditTextPreference android:icon="@drawable/rmx_server_line" android:key="dns.proxy-server-nameserver" android:title="@string/mihomo_setting_dns_proxy_server_nameserver" app:layout="@layout/uwu_mid" />
+<EditTextPreference android:icon="@drawable/rmx_server_line" android:key="dns.fallback" android:title="@string/mihomo_setting_dns_fallback" app:layout="@layout/uwu_mid" />
+<ListPreference android:icon="@drawable/rmx_server_line" android:key="log-level" android:title="@string/mihomo_setting_log_level" app:layout="@layout/uwu_mid" />
+<androidx.preference.SwitchPreferenceCompat android:icon="@drawable/rmx_server_line" android:key="unified-delay" android:title="@string/mihomo_setting_unified_delay" app:layout="@layout/uwu_mid_switch" app:widgetLayout="@layout/uwu_widget_material_switch" />
+<androidx.preference.SwitchPreferenceCompat android:icon="@drawable/rmx_server_line" android:key="tcp-concurrent" android:title="@string/mihomo_setting_tcp_concurrent" app:layout="@layout/uwu_mid_switch" app:widgetLayout="@layout/uwu_widget_material_switch" />
+<ListPreference android:icon="@drawable/rmx_server_line" android:key="find-process-mode" android:title="@string/mihomo_setting_find_process_mode" app:layout="@layout/uwu_mid" />
+<ListPreference android:icon="@drawable/rmx_server_line" android:key="geodata-loader" android:title="@string/mihomo_setting_geodata_loader" app:layout="@layout/uwu_mid" />
+<ListPreference android:icon="@drawable/rmx_server_line" android:key="geodata-mode" android:title="@string/mihomo_setting_geodata_mode" app:layout="@layout/uwu_mid" />
+<ListPreference android:icon="@drawable/rmx_server_line" android:key="dns.cache-algorithm" android:title="@string/mihomo_setting_dns_cache_algorithm" app:layout="@layout/uwu_mid" />
+<ListPreference android:icon="@drawable/rmx_server_line" android:key="dns.respect-rules" android:title="@string/mihomo_setting_dns_respect_rules" app:layout="@layout/uwu_mid" />
+<ListPreference android:icon="@drawable/rmx_server_line" android:key="dns.use-hosts" android:title="@string/mihomo_setting_dns_use_hosts" app:layout="@layout/uwu_mid" />
+<ListPreference android:icon="@drawable/rmx_server_line" android:key="dns.use-system-hosts" android:title="@string/mihomo_setting_dns_use_system_hosts" app:layout="@layout/uwu_mid" />
+<ListPreference android:icon="@drawable/rmx_server_line" android:key="dns.prefer-h3" android:title="@string/mihomo_setting_dns_prefer_h3" app:layout="@layout/uwu_mid" />
+<ListPreference android:icon="@drawable/rmx_server_line" android:key="dns.direct-nameserver-follow-policy" android:title="@string/mihomo_setting_dns_direct_nameserver_follow_policy" app:layout="@layout/uwu_mid" />
 
-        <EditTextPreference
-            android:dialogMessage="@string/title_pref_socks_username_tip"
-            android:icon="@drawable/rmx_user_line"
-            android:key="pref_socks_username"
-            android:summary="@string/summary_pref_socks_username"
-            android:title="@string/title_pref_socks_username"
-            app:dialogIcon="@drawable/rmx_user_line"
-            app:layout="@layout/uwu_mid" />
-
-        <EditTextPreference
-            android:dialogMessage="@string/title_pref_socks_password_tip"
-            android:icon="@drawable/rmx_lock_line"
-            android:inputType="textPassword"
-            android:key="pref_socks_password"
-            android:summary="@string/summary_pref_socks_password"
-            android:title="@string/title_pref_socks_password"
-            app:dialogIcon="@drawable/rmx_lock_line"
-            app:layout="@layout/uwu_mid" />
-
-        <androidx.preference.SwitchPreferenceCompat
-            android:defaultValue="true"
-            android:icon="@drawable/rmx_toggle_line"
-            android:key="pref_socks_enable_udp"
-            android:summary="@string/summary_pref_socks_enable_udp"
-            android:title="@string/title_pref_socks_enable_udp"
-            app:layout="@layout/uwu_mid_switch"
-            app:widgetLayout="@layout/uwu_widget_material_switch" />
-
-        <EditTextPreference
-            android:dialogMessage="@string/title_pref_remote_dns_tip"
-            android:icon="@drawable/rmx_server_line"
-            android:key="pref_remote_dns"
-            android:summary="@string/summary_pref_remote_dns"
-            android:title="@string/title_pref_remote_dns"
-            app:dialogIcon="@drawable/rmx_server_line"
-            app:layout="@layout/uwu_mid" />
-
-        <EditTextPreference
-            android:dialogMessage="@string/title_pref_domestic_dns_tip"
-            android:icon="@drawable/rmx_server_line"
-            android:key="pref_domestic_dns"
-            android:summary="@string/summary_pref_domestic_dns"
-            android:title="@string/title_pref_domestic_dns"
-            app:dialogIcon="@drawable/rmx_server_line"
-            app:layout="@layout/uwu_mid" />
-
-        <EditTextPreference
-            android:dialogMessage="@string/title_pref_dns_hosts_tip"
-            android:icon="@drawable/rmx_server_line"
-            android:key="pref_dns_hosts"
-            android:summary="@string/summary_pref_dns_hosts"
-            android:title="@string/title_pref_dns_hosts"
-            app:dialogIcon="@drawable/rmx_server_line"
-            app:layout="@layout/uwu_mid" />
-
-        <ListPreference
-            android:defaultValue="warning"
-            android:entries="@array/core_loglevel"
-            android:entryValues="@array/core_loglevel"
-            android:icon="@drawable/rmx_file_text_line"
-            android:key="pref_core_loglevel"
-            android:summary="%s"
-            android:title="@string/title_core_loglevel"
-            app:dialogIcon="@drawable/rmx_file_text_line"
-            app:layout="@layout/uwu_mid" />
-
-        <ListPreference
-            android:defaultValue="0"
-            android:entries="@array/outbound_domain_resolve_method"
-            android:entryValues="@array/outbound_domain_resolve_method_value"
-            android:icon="@drawable/rmx_global_line"
-            android:key="pref_outbound_domain_resolve_method"
-            android:summary="%s"
-            android:title="@string/title_outbound_domain_resolve_method"
-            app:dialogIcon="@drawable/rmx_global_line"
-            app:layout="@layout/uwu_mid" />
-
-        <ListPreference
+<ListPreference
             android:defaultValue="Loyalsoldier/v2ray-rules-dat"
             android:entries="@array/geo_files_sources_entries"
             android:entryValues="@array/geo_files_sources_values"
@@ -149,7 +41,5 @@
             android:title="@string/asset_geo_files_sources"
             app:dialogIcon="@drawable/rmx_download_cloud_2_line"
             app:layout="@layout/uwu_bot" />
-
-    </com.miku.ray.widget.UwuPreferenceCategory>
-
+</com.miku.ray.widget.UwuPreferenceCategory>
 </PreferenceScreen>

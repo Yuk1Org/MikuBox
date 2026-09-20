@@ -40,6 +40,7 @@ class MikuProxyService : Service() {
             startExecutor.execute {
                 if (generation.get() != request) return@execute
                 try {
+                    MihomoCoreSettings.prepareMixedPort(this)
                     val config = MihomoConfigStore.activeConfig(this)
                     val result = CoreServiceRuntime.start(this) { MihomoCore.start(
                         this,

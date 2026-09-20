@@ -90,11 +90,6 @@
             tools:replace="android:exported" />
 
         <activity
-            android:name="com.miku.ray.ui.preference.activity.FragmentSettingsActivity"
-            android:exported="true"
-            tools:replace="android:exported" />
-
-        <activity
             android:name="com.miku.ray.ui.preference.activity.AdvancedSettingsActivity"
             android:exported="true"
             tools:replace="android:exported" />

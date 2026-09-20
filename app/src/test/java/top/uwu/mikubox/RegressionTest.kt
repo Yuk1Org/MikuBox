@@ -14,11 +14,9 @@ import org.robolectric.annotation.Config
 import top.uwu.mikubox.core.BackupManager
 import top.uwu.mikubox.core.MihomoCoreSettings
 import top.uwu.mikubox.core.MikuRayProfileDescription
-import top.uwu.mikubox.core.MikuRayRoutingBridge
 import top.uwu.mikubox.core.MikuRayBridgeContext
 import top.uwu.mikubox.core.MikuRaySubscriptions
-import top.uwu.mikubox.core.MikuRaySettings
-import com.miku.ray.dto.entities.RulesetItem
+import top.uwu.mikubox.core.AndroidVpnSettings
 import top.uwu.mikubox.profile.MihomoProfileStore
 import top.uwu.mikubox.profile.MihomoTrafficStore
 import top.uwu.mikubox.profile.MihomoSubscriptionDecoder
@@ -31,6 +29,69 @@ class RegressionTest {
 
     @Before fun setup() {
         context = RuntimeEnvironment.getApplication()
+    }
+
+    @Test fun plainProxyLinksAreNotMistakenForBase64Subscriptions() {
+        for (name in listOf("ModeSmoke", "AuditSOCKS", "Test")) {
+            val config = MihomoSubscriptionDecoder.toMihomoConfig(context, "socks5://127.0.0.1:11080#$name")
+            assertTrue(config.contains(name))
+            assertTrue(config.contains("11080"))
+        }
+    }
+
+    @Test fun offlineCustomGlobalOnlyOffersItsDeclaredMembers() {
+        val options = top.uwu.mikubox.core.MikuRayRoutingMode.configuredOptions("""
+            proxies: [{name: Node}]
+            proxy-groups:
+              - {name: Group, type: select, proxies: [Node]}
+              - {name: GLOBAL, type: select, proxies: [Group]}
+        """.trimIndent())
+        assertEquals(listOf("Group"), options.map { it.name })
+    }
+
+    @Test fun offlineGlobalExitIsScopedToProfileAndSurvivesReload() {
+        MikuRayBridgeContext.attach(context)
+        context.getSharedPreferences("mihomo_profiles", 0).edit().clear().commit()
+        context.getSharedPreferences("mihomo_routing_choices", 0).edit().clear().commit()
+        val yaml = """
+            proxies:
+              - {name: Tokyo, type: socks5, server: 127.0.0.1, port: 11080}
+            proxy-groups:
+              - {name: Auto, type: select, proxies: [Tokyo]}
+            rules: [MATCH,Auto]
+        """.trimIndent()
+        val first = MihomoProfileStore.create(context, "First", yaml)
+        val routing = top.uwu.mikubox.core.MikuRayRoutingMode
+        assertEquals(listOf("Auto", "Tokyo", "DIRECT"), routing.state().options.map { it.name })
+        assertTrue(routing.exit("Tokyo"))
+        assertEquals("Tokyo", routing.state().exit)
+        assertTrue(routing.mode("global"))
+        assertEquals("global", routing.state().mode)
+        val second = MihomoProfileStore.create(context, "Second", yaml)
+        MihomoProfileStore.select(context, second.id)
+        assertNull(routing.state().exit)
+        assertTrue(routing.exit("Auto"))
+        MihomoProfileStore.select(context, first.id)
+        assertEquals("Tokyo", routing.state().exit)
+        assertFalse(routing.exit("Missing"))
+        assertFalse(routing.mode("unknown"))
+        MihomoProfileStore.update(context, first.copy(config = "proxies: []"))
+        assertNull(routing.state().exit)
+    }
+
+    @Test fun offlineModeFollowsYamlAndJsonAndListsGroupsBeforeNodes() {
+        MikuRayBridgeContext.attach(context)
+        context.getSharedPreferences("mihomo_profiles", 0).edit().clear().commit()
+        MihomoCoreSettings.setMode(context, MihomoCoreSettings.ProxyMode.FOLLOW)
+        val profile = MihomoProfileStore.create(context, "JSON", """{"mode":"global","proxies":[{"name":"Node"}],"proxy-groups":[{"name":"Group"}]}""")
+        val routing = top.uwu.mikubox.core.MikuRayRoutingMode
+        assertEquals("global", routing.state().mode)
+        assertEquals(listOf("Group", "Node", "DIRECT"), routing.state().options.map { it.name })
+        assertTrue(routing.state().options.first().group)
+        MihomoProfileStore.update(context, profile.copy(config = "mode: 'direct' # comment"))
+        assertEquals("direct", routing.state().mode)
+        assertTrue(routing.mode("rule"))
+        assertEquals("rule", routing.state().mode)
     }
 
     @Test fun malformedLaterStoreDoesNotOverwriteEarlierStore() {
@@ -109,92 +170,85 @@ class RegressionTest {
     }
 
     /**
-     * The routing screen lists the selected profile's own rules, and the ones it
-     * has switched off must not reach the core — while everything else keeps the
-     * profile's order, which is what leaves its `MATCH` last.
-     */
-    @Test fun profileRulesKeepTheirOrderAndDropWhatIsSwitchedOff() {
-        val items = mutableListOf(
-            rulesetItem("DOMAIN-SUFFIX,google.com,PROXY", enabled = true),
-            rulesetItem("AND,((NETWORK,udp),(DST-PORT,443)),REJECT", enabled = false),
-            rulesetItem("MATCH,PROXY", enabled = true),
-        )
-        assertEquals(
-            listOf("DOMAIN-SUFFIX,google.com,PROXY", "MATCH,PROXY"),
-            MikuRayRoutingBridge.rulesFor(items, listOf("MATCH,DIRECT")),
-        )
-    }
-
-    /**
-     * A rule written in the routing screen still wins over the profile's own, and
-     * the profile's list is not appended twice when the screen already holds it.
-     */
-    @Test fun authoredRulesPrecedeProfileRules() {
-        val authored = RulesetItem(
-            remarks = "DOMAIN-SUFFIX",
-            domain = listOf("example.test"),
-            outboundTag = "block",
-        )
-        val fromProfile = rulesetItem("MATCH,PROXY", enabled = true)
-        assertEquals(
-            listOf("DOMAIN-SUFFIX,example.test,REJECT", "MATCH,PROXY"),
-            MikuRayRoutingBridge.rulesFor(mutableListOf(authored, fromProfile), listOf("MATCH,DIRECT")),
-        )
-        // Nothing from a profile in the store: the profile's rules are appended.
-        assertEquals(
-            listOf("DOMAIN-SUFFIX,example.test,REJECT", "MATCH,DIRECT"),
-            MikuRayRoutingBridge.rulesFor(mutableListOf(authored), listOf("MATCH,DIRECT")),
-        )
-    }
-
-    /**
-     * The mappings behind the ported VPN/core screens, checked where they can be:
+     * The Android VPN interface options, checked where they can be:
      * the settings store itself is a native MMKV and only exists on a device, so
      * the store reads are verified there and the parsing here.
      */
-    @Test fun portedSettingsMappings() {
-        assertEquals(1400, MikuRaySettings.mtuFrom("1400"))
-        assertEquals(1500, MikuRaySettings.mtuFrom(null))
-        assertEquals(1280, MikuRaySettings.mtuFrom("900"))   // below what a TUN accepts
-        assertEquals(9000, MikuRaySettings.mtuFrom("65535")) // and above
+    @Test fun androidVpnInterfaceOptions() {
+        assertEquals(1400, AndroidVpnSettings.mtuFrom("1400"))
+        assertEquals(1500, AndroidVpnSettings.mtuFrom(null))
+        assertEquals(1280, AndroidVpnSettings.mtuFrom("900"))   // below what a TUN accepts
+        assertEquals(9000, AndroidVpnSettings.mtuFrom("65535")) // and above
 
-        assertTrue("only \"1\" bypasses the LAN", MikuRaySettings.bypassLanFrom("1"))
-        assertFalse(MikuRaySettings.bypassLanFrom("2"))
-        assertFalse("follow config leaves the decision to the profile", MikuRaySettings.bypassLanFrom("0"))
-        assertFalse(MikuRaySettings.bypassLanFrom(null))
-        assertTrue("public ranges are the bypass routes", MikuRaySettings.publicRoutes().isNotEmpty())
+        assertTrue("only \"1\" bypasses the LAN", AndroidVpnSettings.bypassLanFrom("1"))
+        assertFalse(AndroidVpnSettings.bypassLanFrom("2"))
+        assertFalse("follow config leaves the decision to the profile", AndroidVpnSettings.bypassLanFrom("0"))
+        assertFalse(AndroidVpnSettings.bypassLanFrom(null))
+        assertTrue("public ranges are the bypass routes", AndroidVpnSettings.publicRoutes().isNotEmpty())
 
-        assertEquals(MikuRaySettings.PerAppMode.ALL, MikuRaySettings.perAppModeFrom(false, true))
+        assertEquals(AndroidVpnSettings.PerAppMode.ALL, AndroidVpnSettings.perAppModeFrom(false, true))
         assertEquals(
-            MikuRaySettings.PerAppMode.BYPASS_SELECTED,
-            MikuRaySettings.perAppModeFrom(true, true),
+            AndroidVpnSettings.PerAppMode.BYPASS_SELECTED,
+            AndroidVpnSettings.perAppModeFrom(true, true),
         )
         assertEquals(
-            MikuRaySettings.PerAppMode.ONLY_SELECTED,
-            MikuRaySettings.perAppModeFrom(true, false),
+            AndroidVpnSettings.PerAppMode.ONLY_SELECTED,
+            AndroidVpnSettings.perAppModeFrom(true, false),
         )
     }
 
-    /** The DNS section the core is started with carries the ported resolvers. */
-    @Test fun dnsOverrideUsesThePortedResolvers() {
-        val dns = MikuRaySettings.applyDnsOverrides(
-            dns = JSONObject(),
-            remote = listOf("https://dns.example/dns-query"),
-            domestic = listOf("223.5.5.5"),
-            localDns = true,
-            fakeDns = true,
-            fakePool = "198.19.0.1/16",
-            preferIpv6 = true,
-        )
-        assertEquals("https://dns.example/dns-query", dns.getJSONArray("nameserver").getString(0))
-        assertEquals(
-            listOf("system", "223.5.5.5"),
-            (0 until dns.getJSONArray("direct-nameserver").length())
-                .map { dns.getJSONArray("direct-nameserver").getString(it) },
-        )
-        assertEquals("fake-ip", dns.getString("enhanced-mode"))
-        assertEquals("198.19.0.1/16", dns.getString("fake-ip-range"))
-        assertTrue(dns.getBoolean("ipv6"))
+    @Test fun nativeDnsOverridesKeepProfileDefaultsAndWriteExactMihomoKeys() {
+        val dns = top.uwu.mikubox.core.DnsOverrides
+        context.getSharedPreferences("miku_dns_overrides", 0).edit().clear().commit()
+        assertEquals(0, dns.json(context).length())
+        dns.setNameserver(context, "https://dns.example/dns-query")
+        dns.setDirectNameserver(context, "system,223.5.5.5")
+        dns.setEnhancedMode(context, top.uwu.mikubox.core.DnsOverrides.EnhancedMode.FAKE_IP)
+        dns.setIpv6(context, top.uwu.mikubox.core.DnsOverrides.OFF)
+        val result = dns.json(context)
+        assertEquals("https://dns.example/dns-query", result.getJSONArray("nameserver").getString(0))
+        assertEquals("system", result.getJSONArray("direct-nameserver").getString(0))
+        assertEquals("fake-ip", result.getString("enhanced-mode"))
+        assertFalse(result.getBoolean("ipv6"))
+        dns.setNameserver(context, "")
+        dns.setIpv6(context, top.uwu.mikubox.core.DnsOverrides.UNSET)
+        assertFalse(dns.json(context).has("nameserver"))
+        assertFalse(dns.json(context).has("ipv6"))
+    }
+
+    @Test fun sniffOverrideCanChangeWithoutOverridingProfileEnable() {
+        val extras = top.uwu.mikubox.core.CoreOverrides
+        context.getSharedPreferences("miku_core_overrides", 0).edit().clear().commit()
+        extras.setSniffOverrideDestination(context, top.uwu.mikubox.core.CoreOverrides.OFF)
+        val result = extras.snifferJson(context)
+        assertFalse(result.has("enable"))
+        assertFalse(result.getBoolean("override-destination"))
+    }
+
+    @Test fun nativeOverridesNeverInjectLegacyRulesIntoDirectOnlyProfiles() {
+        val config = "mode: rule\nrules:\n  - MATCH,DIRECT"
+        MihomoProfileStore.create(context, "Direct only", config)
+        val overrides = JSONObject(MihomoCoreSettings.overridesJson(context, 1500))
+        assertFalse(overrides.has("rules"))
+        assertEquals(MihomoCoreSettings.mixedPort(context), overrides.getInt("mixed-port"))
+        assertEquals(1500, overrides.getJSONObject("tun").getInt("mtu"))
+    }
+
+    @Test fun nativeCoreSettingsNeedNoXrayStoreAndUseNativePortAndKeepAlive() {
+        context.getSharedPreferences("mihomo_core_settings", 0).edit().clear().commit()
+        context.getSharedPreferences("miku_core_overrides", 0).edit().clear().commit()
+        val extras = top.uwu.mikubox.core.CoreOverrides
+        assertEquals(10808, MihomoCoreSettings.mixedPort(context))
+        extras.setMixedPort(context, 10809)
+        extras.setKeepAliveInterval(context, 42)
+        extras.setKeepAliveIdle(context, 30)
+        MihomoCoreSettings.setIpv6(context, true)
+        MihomoCoreSettings.setAllowLan(context, false)
+        assertEquals(10809, MihomoCoreSettings.mixedPort(context))
+        assertEquals(42, extras.coreJson(context).getInt("keep-alive-interval"))
+        assertEquals(30, extras.coreJson(context).getInt("keep-alive-idle"))
+        assertTrue(MihomoCoreSettings.ipv6(context))
+        assertFalse(MihomoCoreSettings.allowLan(context))
     }
 
     /**
@@ -315,15 +369,6 @@ class RegressionTest {
         override fun refresh(id: String): Boolean = true
     }
 
-    private fun rulesetItem(line: String, enabled: Boolean): RulesetItem = RulesetItem(
-        remarks = line.substringBefore(','),
-        domain = listOf(line),
-        outboundTag = line.substringAfterLast(','),
-        enabled = enabled,
-        locked = true,
-        rawRule = line,
-    )
-
     @Test fun obsoleteServiceCannotStopSuccessorAndStopIsIdempotent() {
         val ownership = CoreOwnership()
         val old = Any()
@@ -351,6 +396,63 @@ class RegressionTest {
         ownership.release(next) { events += "finish next" }
         ownership.releaseCurrent { events += "duplicate stop" }
         assertEquals(listOf("finish old", "start next", "finish next"), events)
+    }
+
+    @Test fun newSubscriptionCanDisableAutomaticUpdates() {
+        val bridge = MikuRaySubscriptionsForTest()
+        val id = requireNotNull(bridge.upsert(null, "manual", "https://example.test/sub", false, 60, false))
+        assertEquals(0L, MihomoProfileStore.profiles(context).single { it.id == id }.updateIntervalMinutes)
+        assertFalse(bridge.list().single { it.id == id }.autoUpdate)
+    }
+
+    @Test fun localProfileIsNotMistakenForSubscription() {
+        val profile = MihomoProfileStore.create(context, "local", "rules: [MATCH,DIRECT]")
+        val stored = MihomoProfileStore.profiles(context).single { it.id == profile.id }
+        assertNull(stored.subscriptionUrl)
+        assertFalse(stored.isSubscription)
+    }
+
+    @Test fun uiProfileBridgePersistsEditsSelectionDeletionAndBackup() {
+        MikuRayBridgeContext.attach(context)
+        val bridge = top.uwu.mikubox.core.MikuRayProfiles
+        val first = bridge.save(null, "first", "rules:\n  - MATCH,DIRECT")
+        val second = bridge.save(null, "second", "rules:\n  - MATCH,REJECT")
+        bridge.select(second)
+        bridge.save(second, "edited", "rules:\n  - DOMAIN,example.test,REJECT\n  - MATCH,DIRECT")
+        assertEquals("edited", MihomoProfileStore.selected(context)?.name)
+        assertTrue(MihomoProfileStore.selected(context)!!.config.contains("example.test"))
+        val backup = bridge.exportBackup()
+        bridge.remove(first)
+        assertNull(bridge.get(first))
+        bridge.restoreBackup(backup)
+        assertNotNull(bridge.get(first))
+        assertEquals(second, MihomoProfileStore.selected(context)?.id)
+    }
+
+    @Test fun malformedConfigurationDoesNotOverwriteWorkingProfile() {
+        MikuRayBridgeContext.attach(context)
+        val bridge = top.uwu.mikubox.core.MikuRayProfiles
+        val id = bridge.save(null, "working", "rules:\n  - MATCH,DIRECT")
+        assertThrows(IllegalStateException::class.java) {
+            bridge.save(id, "broken", "rules: [unterminated")
+        }
+        assertEquals("working", bridge.get(id)?.name)
+    }
+
+    @Test fun nativeJsonAndFullYamlKeepRulesAndGroups() {
+        val json = """{"mode":"rule","rules":["MATCH,DIRECT"]}"""
+        assertEquals(json, MihomoSubscriptionDecoder.toMihomoConfig(context, json))
+        val yaml = "proxy-groups: []\nrules:\n  - DOMAIN,example.test,REJECT\n  - MATCH,DIRECT"
+        assertEquals(yaml, MihomoSubscriptionDecoder.toMihomoConfig(context, yaml))
+    }
+
+    @Test fun backupPreflightDoesNotApplyWrites() {
+        val prefs = context.getSharedPreferences("miku_app_settings", 0)
+        prefs.edit().putString("value", "old").commit()
+        val backup = BackupManager.export(context)
+        prefs.edit().putString("value", "new").commit()
+        BackupManager.validate(context, backup)
+        assertEquals("new", prefs.getString("value", null))
     }
 
     private fun entry(type: String, value: Any) = JSONObject().put("t", type).put("v", value)

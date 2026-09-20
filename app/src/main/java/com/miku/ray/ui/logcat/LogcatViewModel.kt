@@ -1,5 +1,7 @@
 package com.miku.ray.ui.logcat
 
+import com.miku.ray.util.waitForCompat
+
 import android.os.Process
 import androidx.lifecycle.ViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -74,9 +76,9 @@ class LogcatViewModel : ViewModel() {
             .redirectErrorStream(true)
             .start()
 
-            val exited = process.waitFor(5, TimeUnit.SECONDS)
+            val exited = process.waitForCompat(5, TimeUnit.SECONDS)
             if (!exited) {
-                process.destroyForcibly()
+                process.destroy()
                 return null
             }
 
@@ -99,9 +101,9 @@ class LogcatViewModel : ViewModel() {
             .redirectErrorStream(true)
             .start()
 
-            val exited = process.waitFor(5, TimeUnit.SECONDS)
+            val exited = process.waitForCompat(5, TimeUnit.SECONDS)
             if (!exited) {
-                process.destroyForcibly()
+                process.destroy()
                 return null
             }
 
@@ -119,7 +121,7 @@ class LogcatViewModel : ViewModel() {
             val process = ProcessBuilder("logcat", "-c")
             .redirectErrorStream(true)
             .start()
-            process.waitFor(3, TimeUnit.SECONDS)
+            process.waitForCompat(3, TimeUnit.SECONDS)
         } catch (e: Exception) {
             LogUtil.w(AppConfig.TAG, "logcat clear failed: ${e.message}")
         }

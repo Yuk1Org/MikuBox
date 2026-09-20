@@ -99,11 +99,6 @@
             android:parentActivityName="com.miku.ray.ui.preference.activity.SettingsActivity" />
 
         <activity
-            android:name="com.miku.ray.ui.preference.activity.FragmentSettingsActivity"
-            android:exported="false"
-            android:parentActivityName="com.miku.ray.ui.preference.activity.SettingsActivity" />
-
-        <activity
             android:name="com.miku.ray.ui.preference.activity.AdvancedSettingsActivity"
             android:exported="false"
             android:parentActivityName="com.miku.ray.ui.preference.activity.SettingsActivity" />
@@ -208,7 +203,7 @@
 
         <provider
             android:name="androidx.core.content.FileProvider"
-            android:authorities="${applicationId}.fileprovider"
+            android:authorities="${applicationId}.fileprovider;${applicationId}.cache"
             android:exported="false"
             android:grantUriPermissions="true">
             <meta-data

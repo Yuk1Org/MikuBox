@@ -18,6 +18,7 @@ object BackupManager {
         "mihomo_vpn_settings",
         "mihomo_traffic",
         "mihomo_core_settings",
+        "mihomo_routing_choices",
         "miku_core_overrides",
         "miku_dns_settings",
         "miku_dns_overrides",
@@ -46,7 +47,13 @@ object BackupManager {
         return JSONObject().put("version", VERSION).put("stores", stores).toString(2)
     }
 
+    fun validate(context: Context, json: String) { parse(context, json) }
+
     fun import(context: Context, json: String) {
+        parse(context, json).forEach { check(it.commit()) { "Could not persist restored settings" } }
+    }
+
+    private fun parse(context: Context, json: String): List<android.content.SharedPreferences.Editor> {
         val root = JSONObject(json)
         require(root.getInt("version") == VERSION) { "Unsupported backup version" }
         val stores = root.getJSONObject("stores")
@@ -76,6 +83,6 @@ object BackupManager {
             }
             editors += editor
         }
-        editors.forEach { check(it.commit()) { "Could not persist restored settings" } }
+        return editors
     }
 }

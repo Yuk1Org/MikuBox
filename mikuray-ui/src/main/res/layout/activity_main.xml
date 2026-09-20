@@ -348,6 +348,15 @@
         android:importantForAccessibility="no"
         android:visibility="gone" />
 
+    <com.miku.ray.ui.main.RoutingModeView
+        android:id="@+id/routing_mode"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="114dp" />
+
     <com.miku.ray.blurview.BlurView
         android:id="@+id/blur_bottom_status"
         android:layout_width="match_parent"

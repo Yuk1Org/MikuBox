@@ -22,6 +22,7 @@ object LauncherManager {
     fun startServiceFromToggle(context: Context): Boolean = startServiceAfterRestart(context)
 
     fun startService(context: Context, guid: String? = null) {
+        guid?.let { com.miku.ray.handler.MmkvManager.setSelectServer(it) }
         // Which profile to connect is MikuBox's own selection; the bridge moves
         // that selection to match MikuRay's list before it starts (see its `start`).
         startServiceAfterRestart(context)
@@ -43,12 +44,8 @@ object LauncherManager {
     }
 
     fun restartService(context: Context, onResult: (handled: Boolean) -> Unit) {
-        // Stopping and starting again is what a restart means for a tunnel this
-        // app does not own; the outcome is reported so callers can keep their UI
-        // in step.
-        val stopped = runCatching { MikuCoreBridge.stop() }.getOrDefault(false)
-        val started = runCatching { MikuCoreBridge.start("") }.getOrDefault(false)
-        onResult(stopped || started)
+        // Keep the service alive while its serialized core queue performs the reload.
+        onResult(runCatching { MikuCoreBridge.restart() }.getOrDefault(false))
     }
 
     fun restartServiceOrStart(context: Context, startIfStopped: () -> Unit) {

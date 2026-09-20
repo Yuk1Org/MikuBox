@@ -1,5 +1,7 @@
 package com.miku.ray.root
 
+import com.miku.ray.util.waitForCompat
+
 import com.miku.ray.AppConfig
 import com.miku.ray.util.LogUtil
 import kotlinx.coroutines.Dispatchers
@@ -32,7 +34,7 @@ object RootManager {
             .redirectErrorStream(true)
             .start()
             val output = process.inputStream.bufferedReader().use { it.readText() }.trim()
-            val finished = process.waitFor(10, TimeUnit.SECONDS)
+            val finished = process.waitForCompat(10, TimeUnit.SECONDS)
             if (!finished) {
                 process.destroy()
                 LogUtil.w(AppConfig.TAG, "RootManager: su probe timed out")

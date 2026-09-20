@@ -32,8 +32,7 @@ object JsonUtil {
     }
 
     fun toJsonPretty(src: Any?): String? {
-        if (src == null)
-        return null
+        if (src == null) return null
         val gsonPre = GsonBuilder()
         .setPrettyPrinting()
         .disableHtmlEscaping()
@@ -50,8 +49,7 @@ object JsonUtil {
     }
 
     fun parseString(src: String?): JsonObject? {
-        if (src == null)
-        return null
+        if (src == null) return null
         try {
             return JsonParser.parseString(src).getAsJsonObject()
         } catch (e: Exception) {

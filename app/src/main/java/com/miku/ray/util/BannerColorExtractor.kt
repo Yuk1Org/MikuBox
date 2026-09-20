@@ -10,6 +10,8 @@ import com.miku.ray.handler.MmkvManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+// Preserve MikuRay's exact HCT palette; the Material dependency is pinned in libs.versions.toml.
+@android.annotation.SuppressLint("RestrictedApi")
 object BannerColorExtractor {
 
     suspend fun extractAndSave(context: Context, uri: Uri, onDone: (colorChanged: Boolean) -> Unit = {}) {

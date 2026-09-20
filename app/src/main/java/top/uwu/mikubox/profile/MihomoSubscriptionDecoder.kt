@@ -12,16 +12,12 @@ import java.nio.charset.StandardCharsets
 object MihomoSubscriptionDecoder {
 
     private const val PROXY_GROUP = "PROXY"
-    private val CONFIG_KEY = Regex(
-        "(?m)^(?:proxies|proxy-providers|proxy-groups|rules|rule-providers|dns|mixed-port|mode)\\s*:(?:\\s|$)",
-    )
-
     fun toMihomoConfig(context: Context, source: String): String {
         val text = source.trim().removePrefix("\uFEFF")
         if (isMihomoConfig(text)) return text
 
         // Some providers Base64-encode the whole Mihomo/Clash YAML, not a link list.
-        val decoded = decodeBase64Subscription(text)
+        val decoded = if (text.contains("://")) text else decodeBase64Subscription(text)
         if (isMihomoConfig(decoded)) return decoded
 
         val links = decoded
@@ -48,8 +44,14 @@ object MihomoSubscriptionDecoder {
         }
     }
 
-    private fun isMihomoConfig(text: String): Boolean =
-        CONFIG_KEY.containsMatchIn(text)
+    private fun isMihomoConfig(text: String): Boolean {
+        val document = runCatching {
+            org.yaml.snakeyaml.Yaml(org.yaml.snakeyaml.constructor.SafeConstructor(
+                org.yaml.snakeyaml.LoaderOptions())).load<Any>(text)
+        }.getOrNull() as? Map<*, *> ?: return false
+        return document.keys.any { it in setOf("proxies", "proxy-providers", "proxy-groups",
+            "rules", "rule-providers", "dns", "mixed-port", "mode") }
+    }
 
     private fun decodeBase64Subscription(text: String): String = runCatching {
         val normalized = text.replace("\\s".toRegex(), "")

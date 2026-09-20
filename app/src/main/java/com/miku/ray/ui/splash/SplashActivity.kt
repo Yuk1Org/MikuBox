@@ -21,6 +21,7 @@ import kotlinx.coroutines.launch
 class SplashActivity : BaseActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
         if (!isTaskRoot) {
             val intentAction = intent.action
             if (intent.hasCategory(Intent.CATEGORY_LAUNCHER) && intentAction != null && intentAction == Intent.ACTION_MAIN) {
@@ -29,7 +30,9 @@ class SplashActivity : BaseActivity() {
             }
         }
 
-        super.onCreate(savedInstanceState)
+        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() = Unit
+        })
 
         if (!MmkvManager.decodeSettingsBool(PREF_SHOW_SPLASH, false)) {
             navigateToMain()
@@ -79,7 +82,4 @@ class SplashActivity : BaseActivity() {
         finish()
     }
 
-    @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
-    }
 }

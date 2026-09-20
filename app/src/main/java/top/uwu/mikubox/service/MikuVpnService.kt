@@ -24,7 +24,7 @@ import top.uwu.mikubox.core.CoreOverrides
 import top.uwu.mikubox.core.MihomoCore
 import top.uwu.mikubox.core.MihomoCoreSettings
 import top.uwu.mikubox.core.MihomoDnsSettings
-import top.uwu.mikubox.core.MikuRaySettings
+import top.uwu.mikubox.core.AndroidVpnSettings
 import top.uwu.mikubox.core.MikuRayProfileSync
 import top.uwu.mikubox.profile.MihomoProfileStore
 import top.uwu.mikubox.profile.MihomoTrafficStore
@@ -76,7 +76,7 @@ class MikuVpnService : VpnService(), ServiceControl {
      */
     private fun acquireWakeLock() {
         synchronized(wakeLockLock) {
-            if (CoreOverrides.wakeLock(this) != CoreOverrides.ON || wakeLock != null) return
+            if (!AndroidVpnSettings.keepAwake(this) || wakeLock != null) return
             val manager = getSystemService(android.os.PowerManager::class.java) ?: return
             wakeLock = runCatching {
                 manager.newWakeLock(
@@ -145,8 +145,10 @@ class MikuVpnService : VpnService(), ServiceControl {
                 return START_STICKY
             }
         }
-        startRequested = true
-        startVpn()
+        if (!running && !starting) {
+            startRequested = true
+            startVpn()
+        }
         return START_STICKY
     }
 
@@ -194,6 +196,7 @@ class MikuVpnService : VpnService(), ServiceControl {
             var fd: Int = MihomoCore.NO_TUN
             var coreAccepted = false
             try {
+                MihomoCoreSettings.prepareMixedPort(this)
                 fd = establishTun() ?: run {
                     reportStartFailure(lastTunError?.message.orEmpty())
                     checkpointHandler.post { if (generation.get() == request) stopVpn() }
@@ -201,16 +204,16 @@ class MikuVpnService : VpnService(), ServiceControl {
                 }
                 val profile = MihomoProfileStore.selected(this)
                 val config = profile?.config ?: MihomoConfigStore.activeConfig(this)
+                require(config.isNotBlank()) { "Update the subscription before connecting" }
                 // The routing rules the core is about to be given come from this
                 // configuration, so the screen's list is refreshed against it —
                 // including the rules the user switched off there.
-                runCatching { top.uwu.mikubox.core.MikuRayRuleSync.sync(this) }
                 val startResult = CoreServiceRuntime.start(this, { MihomoTrafficStore.finish(this) }) { MihomoCore.start(
                     this,
                     config,
                     fd,
                     MihomoDnsSettings.effectiveOverride(this, config),
-                    MihomoCoreSettings.overridesJson(this, MikuRaySettings.mtu(this)),
+                    MihomoCoreSettings.overridesJson(this, AndroidVpnSettings.mtu(this)),
                 ) }
                 if (startResult.isFailure) {
                     closeDetachedTun(fd)
@@ -228,6 +231,7 @@ class MikuVpnService : VpnService(), ServiceControl {
                     CoreServiceRuntime.stop(this)
                     return@execute
                 }
+                top.uwu.mikubox.core.MikuRayRoutingMode.onStarted(this, profile?.id)
                 MihomoTrafficStore.begin(profile)
                 checkpointHandler.post {
                     if (generation.get() != request) return@post
@@ -238,15 +242,15 @@ class MikuVpnService : VpnService(), ServiceControl {
                     // What the tunnel was actually built from: the settings that
                     // reach it come from the ported screens, so the line is what
                     // tells a switch apart from a switch that does nothing.
-                    val address = MikuRaySettings.interfaceAddress(this@MikuVpnService)
+                    val address = AndroidVpnSettings.interfaceAddress(this@MikuVpnService)
                     Log.i(
                         TAG,
-                        "tunnel up (fd=$fd, mtu=${MikuRaySettings.mtu(this@MikuVpnService)}" +
+                        "tunnel up (fd=$fd, mtu=${AndroidVpnSettings.mtu(this@MikuVpnService)}" +
                             ", addr=${address.ipv4Client}" +
-                            ", dns=${MikuRaySettings.tunDnsServers(this@MikuVpnService)}" +
-                            ", bypassLan=${MikuRaySettings.bypassLan(this@MikuVpnService)}" +
-                            "(${MikuRaySettings.bypassLanRaw(this@MikuVpnService)})" +
-                            ", apps=${MikuRaySettings.perAppMode(this@MikuVpnService)})",
+                            ", dns=${AndroidVpnSettings.tunDnsServers(this@MikuVpnService)}" +
+                            ", bypassLan=${AndroidVpnSettings.bypassLan(this@MikuVpnService)}" +
+                            "(${AndroidVpnSettings.bypassLanRaw(this@MikuVpnService)})" +
+                            ", apps=${AndroidVpnSettings.perAppMode(this@MikuVpnService)})",
                     )
                     // The vendored screens hear about the tunnel the same way they
                     // used to hear about MikuRay's own service.
@@ -396,12 +400,12 @@ class MikuVpnService : VpnService(), ServiceControl {
      */
     private fun establishTun(): Int? {
         // Every value here comes from the screen that owns it, so the switch and
-        // the tunnel agree (see MikuRaySettings).
-        val appMode = MikuRaySettings.perAppMode(this)
-        val address = MikuRaySettings.interfaceAddress(this)
+        // the tunnel agree (see AndroidVpnSettings).
+        val appMode = AndroidVpnSettings.perAppMode(this)
+        val address = AndroidVpnSettings.interfaceAddress(this)
         val builder = Builder()
             .setSession(getString(R.string.app_name))
-            .setMtu(MikuRaySettings.mtu(this))
+            .setMtu(AndroidVpnSettings.mtu(this))
             .addAddress(address.ipv4Client, PRIVATE_VLAN4_PREFIX)
             .allowBypass()
         // Without a resolver of its own Android answers from the underlying
@@ -409,13 +413,13 @@ class MikuVpnService : VpnService(), ServiceControl {
         // tunnel advertises an address inside itself and the core hijacks port 53.
         // The setting may name resolvers instead; they are reached through the
         // tunnel either way, so the hijack still answers them.
-        MikuRaySettings.tunDnsServers(this).takeIf { it.isNotEmpty() }
+        AndroidVpnSettings.tunDnsServers(this).takeIf { it.isNotEmpty() }
             ?.forEach { builder.addDnsServer(it) }
             ?: builder.addDnsServer(address.ipv4Router)
-        if (MikuRaySettings.bypassLan(this)) {
+        if (AndroidVpnSettings.bypassLan(this)) {
             // Leave the LAN alone: the routes cover public space, and private
             // ranges go out over the underlying network.
-            MikuRaySettings.publicRoutes().forEach { route ->
+            AndroidVpnSettings.publicRoutes().forEach { route ->
                 val parts = route.split('/')
                 if (parts.size == 2) {
                     runCatching { builder.addRoute(parts[0], parts[1].toInt()) }
@@ -424,23 +428,23 @@ class MikuVpnService : VpnService(), ServiceControl {
         } else {
             builder.addRoute("0.0.0.0", 0)
         }
-        if (MikuRaySettings.ipv6Enabled(this)) {
+        if (MihomoCoreSettings.ipv6(this)) {
             builder.addAddress(address.ipv6Client, PRIVATE_VLAN6_PREFIX)
             builder.addRoute("::", 0)
-            val v6Dns = MikuRaySettings.tunDnsServers(this).filter { it.contains(':') }
+            val v6Dns = AndroidVpnSettings.tunDnsServers(this).filter { it.contains(':') }
             if (v6Dns.isEmpty()) builder.addDnsServer(address.ipv6Router) else v6Dns.forEach { builder.addDnsServer(it) }
         }
         // The core shares this application's UID. Excluding it prevents
         // Mihomo's own sockets from being fed back into the VPN TUN. In
         // allow-list mode it is implicitly excluded by not being allowed.
-        if (appMode != MikuRaySettings.PerAppMode.ONLY_SELECTED) {
+        if (appMode != AndroidVpnSettings.PerAppMode.ONLY_SELECTED) {
             builder.addDisallowedApplication(packageName)
         }
         when (appMode) {
-            MikuRaySettings.PerAppMode.ALL -> Unit
+            AndroidVpnSettings.PerAppMode.ALL -> Unit
 
-            MikuRaySettings.PerAppMode.ONLY_SELECTED -> {
-                val packages = MikuRaySettings.perAppPackages(this)
+            AndroidVpnSettings.PerAppMode.ONLY_SELECTED -> {
+                val packages = AndroidVpnSettings.perAppPackages(this)
                 if (packages.isEmpty()) {
                     // A list that selects nothing would tunnel everything, so fall
                     // back to excluding only this app and letting the rest through.
@@ -450,11 +454,11 @@ class MikuVpnService : VpnService(), ServiceControl {
                 }
             }
 
-            MikuRaySettings.PerAppMode.BYPASS_SELECTED -> {
-                MikuRaySettings.perAppPackages(this).forEach { runCatching { builder.addDisallowedApplication(it) } }
+            AndroidVpnSettings.PerAppMode.BYPASS_SELECTED -> {
+                AndroidVpnSettings.perAppPackages(this).forEach { runCatching { builder.addDisallowedApplication(it) } }
             }
         }
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q && MikuRaySettings.appendHttpProxy(this)) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && AndroidVpnSettings.appendHttpProxy(this)) {
             runCatching {
                 builder.setHttpProxy(
                     android.net.ProxyInfo.buildDirectProxy(
@@ -586,7 +590,7 @@ class MikuVpnService : VpnService(), ServiceControl {
         private const val HTTP_PROXY_HOST = "127.0.0.1"
 
         // The address pair and its resolvers come from the ported VPN screen's own
-        // preset table (see MikuRaySettings.interfaceAddress); only the prefix
+        // preset table (see AndroidVpnSettings.interfaceAddress); only the prefix
         // lengths are this app's, and they are what the table is built for.
         private const val PRIVATE_VLAN4_PREFIX = 30
         private const val PRIVATE_VLAN6_PREFIX = 126

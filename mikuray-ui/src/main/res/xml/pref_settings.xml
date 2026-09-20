@@ -67,16 +67,11 @@
     <Preference
         android:icon="@drawable/rmx_router_line"
         android:key="pref_navigate_core_settings"
-        android:summary="@string/summary_navigate_core_settings"
+        android:summary="@string/mihomo_settings_hint"
         android:title="@string/title_core_settings"
         app:layout="@layout/uwu_mid" />
 
-    <Preference
-        android:icon="@drawable/rmx_design_scissors_cut_line"
-        android:key="pref_navigate_fragment_settings"
-        android:summary="@string/summary_navigate_fragment_settings"
-        android:title="@string/title_fragment_settings"
-        app:layout="@layout/uwu_mid" />
+
 
      <Preference
         android:icon="@drawable/rmx_design_tools_line"

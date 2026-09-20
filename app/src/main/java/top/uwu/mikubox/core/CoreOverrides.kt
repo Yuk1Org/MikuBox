@@ -83,6 +83,11 @@ object CoreOverrides {
         edit(context) { putString(KEY_FINGERPRINT, value.name) }
 
     /** Seconds an idle connection is kept; 0 leaves the core's default. */
+    fun keepAliveIdle(context: Context): Int = number(context, "keep_alive_idle")
+    fun setKeepAliveIdle(context: Context, value: Int) = edit(context) {
+        if (value <= 0) remove("keep_alive_idle") else putInt("keep_alive_idle", value)
+    }
+
     fun keepAliveInterval(context: Context): Int = number(context, KEY_KEEP_ALIVE)
     fun setKeepAliveInterval(context: Context, value: Int) = edit(context) {
         if (value <= 0) remove(KEY_KEEP_ALIVE) else putInt(KEY_KEEP_ALIVE, value)
@@ -212,13 +217,8 @@ object CoreOverrides {
         clientFingerprint(context).value?.let { put("global-client-fingerprint", it) }
         putFlag(this, "geodata-mode", geodataMode(context))
         putFlag(this, "disable-keep-alive", disableKeepAlive(context))
-        // The ported core screen's keep-alive setting wins when it has a value of
-        // its own; this app's key stays as the fallback for a device where that
-        // screen was never touched.
-        (MikuRaySettings.keepAliveSeconds(context).takeIf { it > 0 }
-            ?: keepAliveInterval(context).takeIf { it > 0 })
-            ?.let { put("keep-alive-interval", it) }
-        mixedPort(context).takeIf { it > 0 }?.let { put("mixed-port", it) }
+        keepAliveIdle(context).takeIf { it > 0 }?.let { put("keep-alive-idle", it) }
+        keepAliveInterval(context).takeIf { it > 0 }?.let { put("keep-alive-interval", it) }
         controllerJson(context).also { controller ->
             controller.keys().forEach { key -> put(key, controller.get(key)) }
         }
@@ -241,16 +241,13 @@ object CoreOverrides {
         when (sniffing(context)) {
             ON -> {
                 put("enable", true)
-                val override = sniffOverrideDestination(context) != OFF
-                put("override-destination", override)
                 put(
                     "sniff",
                     JSONObject()
                         .put(
                             "HTTP",
                             JSONObject()
-                                .put("ports", JSONArray().put("80").put("8080-8880"))
-                                .put("override-destination", override),
+                                .put("ports", JSONArray().put("80").put("8080-8880")),
                         )
                         .put("TLS", JSONObject())
                         .put("QUIC", JSONObject()),
@@ -258,6 +255,7 @@ object CoreOverrides {
             }
             OFF -> put("enable", false)
         }
+        putFlag(this, "override-destination", sniffOverrideDestination(context))
     }
 
     /** Writes a tri-state as a real boolean, never as a boxed value. */

@@ -278,6 +278,7 @@ object SettingsManager {
     }
 
     fun getSocksPort(): Int {
+        com.miku.ray.MikuSettings.impl?.let { return it.mixedPort() }
         val port =
         if (IsDynamicSocksPort()) {
             runtimeSocksPort ?: refreshRuntimeSocksPort()
@@ -289,6 +290,7 @@ object SettingsManager {
 
     @Synchronized
     fun refreshRuntimeSocksPort(): Int? {
+        if (com.miku.ray.MikuSettings.impl != null) return null
         if (IsDynamicSocksPort()) {
             runtimeSocksPort = generateRandomSocksPort()
             return runtimeSocksPort
@@ -297,10 +299,12 @@ object SettingsManager {
     }
 
     fun getSocksUsername(): String? {
+        if (com.miku.ray.MikuSettings.impl != null) return null
         return MmkvManager.decodeSettingsString(AppConfig.PREF_SOCKS_USERNAME)?.trim()?.takeIf { it.isNotEmpty() }
     }
 
     fun getSocksPassword(): String? {
+        if (com.miku.ray.MikuSettings.impl != null) return null
         return MmkvManager.decodeSettingsString(AppConfig.PREF_SOCKS_PASSWORD)?.trim()?.takeIf { it.isNotEmpty() }
     }
 

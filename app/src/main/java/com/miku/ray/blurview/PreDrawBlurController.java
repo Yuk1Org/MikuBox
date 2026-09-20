@@ -50,7 +50,7 @@ public final class PreDrawBlurController implements BlurController {
         this.blurView = blurView;
         this.overlayColor = overlayColor;
         this.blurAlgorithm = algorithm;
-        if (algorithm instanceof RenderEffectBlur) {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S && algorithm instanceof RenderEffectBlur) {
 
             ((RenderEffectBlur) algorithm).setContext(blurView.getContext());
         }

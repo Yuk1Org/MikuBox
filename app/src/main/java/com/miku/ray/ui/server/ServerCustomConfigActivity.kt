@@ -44,7 +44,7 @@ class ServerCustomConfigActivity : BaseActivity() {
         binding.serverScrollContent.applyEdgeToEdgeListInsets()
 
         val toolbar = findViewById<MaterialToolbar>(R.id.toolbar)
-        setupToolbar(toolbar, showHomeAsUp = true, title = EConfigType.CUSTOM.toString(), subtitle = getString(R.string.subtitle_server_config))
+        setupToolbar(toolbar, showHomeAsUp = true, title = if (com.miku.ray.MikuProfiles.impl != null) "mihomo YAML / JSON" else EConfigType.CUSTOM.toString(), subtitle = getString(R.string.subtitle_server_config))
 
         if (!Utils.getDarkModeStatus(this)) {
             binding.editor.colorScheme = EditorTheme.INTELLIJ_LIGHT
@@ -60,7 +60,7 @@ class ServerCustomConfigActivity : BaseActivity() {
 
     private fun bindingServer(config: ProfileItem): Boolean {
         binding.etRemarks.text = Utils.getEditable(config.remarks)
-        val raw = MmkvManager.decodeServerRaw(editGuid)
+        val raw = com.miku.ray.MikuProfiles.impl?.get(editGuid)?.config ?: MmkvManager.decodeServerRaw(editGuid)
         val configContent = raw.orEmpty()
 
         binding.editor.setTextContent(Utils.getEditable(configContent))
@@ -79,6 +79,19 @@ class ServerCustomConfigActivity : BaseActivity() {
                 title = getString(R.string.title_alerter_error)
             )
             return false
+        }
+
+        com.miku.ray.MikuProfiles.impl?.let { store ->
+            return try {
+                store.save(editGuid.takeIf { it.isNotBlank() }, binding.etRemarks.text.toString(), binding.editor.text.toString())
+                SettingsChangeManager.makeSetupGroupTab()
+                toastSuccess(R.string.toast_success)
+                finish()
+                true
+            } catch (e: Exception) {
+                snackbarError(e.message.orEmpty(), title = getString(R.string.title_alerter_error))
+                false
+            }
         }
 
         val profileItem = try {

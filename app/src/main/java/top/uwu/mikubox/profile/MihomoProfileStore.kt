@@ -82,9 +82,9 @@ object MihomoProfileStore {
         val profile = Profile(
             id = UUID.randomUUID().toString(),
             name = name.ifBlank { context.getString(R.string.profile_subscription_default_name) },
-            config = DEFAULT_CONFIG,
+            config = "", // A subscription must be downloaded before it can connect.
             subscriptionUrl = url,
-            updateIntervalMinutes = intervalMinutes.coerceAtLeast(15),
+            updateIntervalMinutes = if (intervalMinutes <= 0) 0 else intervalMinutes.coerceAtLeast(15),
             updateWhenConnectedOnly = updateWhenConnectedOnly,
             updateThroughProxy = updateThroughProxy,
         )
@@ -214,7 +214,7 @@ object MihomoProfileStore {
         id = getString("id"),
         name = optString("name", context.getString(R.string.profile_default_name)),
         config = getString("config"),
-        subscriptionUrl = optString("subscriptionUrl").ifBlank { null },
+        subscriptionUrl = if (isNull("subscriptionUrl")) null else optString("subscriptionUrl").ifBlank { null },
         updateIntervalMinutes = optLong("updateIntervalMinutes"),
         updateWhenConnectedOnly = optBoolean("updateWhenConnectedOnly"),
         updateThroughProxy = optBoolean("updateThroughProxy"),

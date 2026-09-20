@@ -33,6 +33,10 @@ object MihomoProfileImporter {
                 subscriptionUrl,
             )
         }
+        if (uri.scheme?.lowercase() in setOf("ss", "ssr", "vmess", "vless", "trojan",
+                "socks", "socks5", "hysteria", "hysteria2", "hy2", "tuic", "ssh")) {
+            return importConfig(context, uri.fragment ?: context.getString(R.string.profile_imported_default_name), uri.toString())
+        }
         // Any other URI is a document pointing at the YAML itself; the URI string
         // is not the content, so read it through the resolver.
         val content = runCatching {

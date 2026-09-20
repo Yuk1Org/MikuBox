@@ -48,11 +48,16 @@ object MikuRayProfileSync {
             if (existing == null) entry.addedTime = System.currentTimeMillis()
             // encodeServerConfig also files the id into the list it belongs to; it
             // only rewrites when the entry actually changed.
-            if (existing == null || existing.remarks != entry.remarks ||
-                existing.configType != entry.configType || existing.server != entry.server
+            // ProfileItem.equals intentionally ignores display metadata for node
+            // deduplication, so it cannot detect a profile rename by itself.
+            if (existing != entry || existing.remarks != entry.remarks ||
+                existing.configType != entry.configType ||
+                existing.subscriptionId != entry.subscriptionId ||
+                existing.insecure != entry.insecure
             ) {
                 MmkvManager.encodeServerConfig(profile.id, entry)
             }
+            MmkvManager.encodeServerRaw(profile.id, profile.config)
         }
 
         // Entries whose profile is gone.
@@ -61,9 +66,6 @@ object MikuRayProfileSync {
             .forEach { stale -> MmkvManager.removeServer(stale) }
 
         MihomoProfileStore.selected(context)?.let { MmkvManager.setSelectServer(it.id) }
-        // The routing screen lists the selected profile's rules, so it follows the
-        // profile this mirrors.
-        MikuRayRuleSync.sync(context)
         refreshRowDetails(context)
         SettingsChangeManager.notifyUiCustomizationChanged()
     }

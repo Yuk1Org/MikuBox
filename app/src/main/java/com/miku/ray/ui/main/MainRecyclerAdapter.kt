@@ -304,7 +304,7 @@ FastScrollRecyclerView.SectionedAdapter {
                 holder.views.layoutMore?.apply {
                     visibility = View.VISIBLE
                     setOnClickListener { anchor ->
-                        showServerActionsMenu(anchor, guid, profile, position)
+                        showServerActionsMenu(anchor, guid, profile)
                     }
                 }
             } else {
@@ -327,7 +327,7 @@ FastScrollRecyclerView.SectionedAdapter {
                     holder.views.layoutMore?.apply {
                         visibility = View.VISIBLE
                         setOnClickListener { anchor ->
-                            showServerActionsMenu(anchor, guid, profile, position)
+                            showServerActionsMenu(anchor, guid, profile)
                         }
                     }
                 } else {
@@ -338,19 +338,25 @@ FastScrollRecyclerView.SectionedAdapter {
                     holder.views.layoutShare?.apply {
                         visibility = View.VISIBLE
                         setOnClickListener {
-                            adapterListener?.onShare(guid, profile, position, false)
+                            if (holder.bindingAdapterPosition != RecyclerView.NO_POSITION) {
+                                adapterListener?.onShare(guid, profile, holder.bindingAdapterPosition, false)
+                            }
                         }
                     }
                     holder.views.layoutEdit?.apply {
                         visibility = View.VISIBLE
                         setOnClickListener {
-                            adapterListener?.onEdit(guid, position, profile)
+                            if (holder.bindingAdapterPosition != RecyclerView.NO_POSITION) {
+                                adapterListener?.onEdit(guid, holder.bindingAdapterPosition, profile)
+                            }
                         }
                     }
                     holder.views.layoutRemove?.apply {
                         visibility = View.VISIBLE
                         setOnClickListener {
-                            adapterListener?.onRemove(guid, position)
+                            if (holder.bindingAdapterPosition != RecyclerView.NO_POSITION) {
+                                adapterListener?.onRemove(guid, holder.bindingAdapterPosition)
+                            }
                         }
                     }
                 }
@@ -366,7 +372,9 @@ FastScrollRecyclerView.SectionedAdapter {
 
                     override fun onDoubleTap(e: android.view.MotionEvent): Boolean {
                         if (isSelectedServer) {
-                            adapterListener?.onPinToggle(guid, position, isPinned)
+                            if (holder.bindingAdapterPosition != RecyclerView.NO_POSITION) {
+                                adapterListener?.onPinToggle(guid, holder.bindingAdapterPosition, isPinned)
+                            }
                         } else {
                             adapterListener?.onSelectServer(guid)
                         }
@@ -398,13 +406,14 @@ FastScrollRecyclerView.SectionedAdapter {
     private fun showServerActionsMenu(
         anchor: View,
         guid: String,
-        profile: ProfileItem,
-        position: Int
+        profile: ProfileItem
     ) {
         PopupMenu(anchor.context, anchor).apply {
             menuInflater.inflate(R.menu.menu_server_item_overflow, menu)
             setForceShowIcon(true)
             setOnMenuItemClickListener { item ->
+                val position = data.indexOfFirst { it.guid == guid }
+                if (position < 0) return@setOnMenuItemClickListener false
                 when (item.itemId) {
                     R.id.action_share_server -> {
                         adapterListener?.onShare(guid, profile, position, false)

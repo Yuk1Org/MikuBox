@@ -184,6 +184,8 @@ class CountryCodeTestService : Service() {
     }
 
     private fun lookupThroughProfile(guid: String): String? {
+        // This worker must never start/stop the application's single VPN core.
+        if (com.miku.ray.MikuProfiles.impl != null) return null
         val result = CoreConfigManager.getV2rayConfig4Speedtest(this, guid)
         if (!result.status || result.content.isBlank()) return null
 

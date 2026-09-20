@@ -178,6 +178,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         updateCache()
+        refreshAllGroupCaches()
         serverCacheLoaded = true
         if (notify) notifyListChanged(-1)
     }

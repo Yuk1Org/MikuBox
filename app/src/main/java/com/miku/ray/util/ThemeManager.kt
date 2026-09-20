@@ -18,6 +18,8 @@ import com.miku.ray.R
 import com.miku.ray.handler.MmkvManager
 import com.miku.ray.handler.SettingsChangeManager
 
+// Preserve MikuRay's exact HCT palette; the Material dependency is pinned in libs.versions.toml.
+@android.annotation.SuppressLint("RestrictedApi")
 object ThemeManager {
 
     fun applyTheme(activity: Activity) {

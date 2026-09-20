@@ -386,6 +386,8 @@ object WeatherHelper {
         .build()
     }
 
+    // Both location permission checks and SecurityException handling are in this function.
+    @android.annotation.SuppressLint("MissingPermission")
     private suspend fun getCurrentLocation(
         context: Context,
         force: Boolean = false
@@ -612,8 +614,9 @@ object WeatherHelper {
                 return Result.success()
             }
 
-            if (!hasCustomLocation() && !hasBackgroundLocationPermission(applicationContext))
-            return Result.success()
+            if (!hasCustomLocation() && !hasBackgroundLocationPermission(applicationContext)) {
+                return Result.success()
+            }
 
             val result = fetchCurrentWeather(applicationContext)
             return if (result != null) Result.success() else Result.retry()

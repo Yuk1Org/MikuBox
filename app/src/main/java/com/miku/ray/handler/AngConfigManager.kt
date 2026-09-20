@@ -113,6 +113,10 @@ object AngConfigManager {
     fun shareFullContent2Clipboard(context: Context, guid: String?): Int {
         try {
             if (guid == null) return -1
+            com.miku.ray.MikuProfiles.impl?.get(guid)?.let {
+                Utils.setClipboard(context, it.config)
+                return 0
+            }
             val result = CoreConfigManager.getV2rayConfig(context, guid)
             if (result.status) {
                 Utils.setClipboard(context, result.content)
@@ -127,6 +131,7 @@ object AngConfigManager {
     }
 
     private fun shareConfig(guid: String): String {
+        com.miku.ray.MikuProfiles.impl?.get(guid)?.let { return it.config }
         try {
             val config = MmkvManager.decodeServerConfig(guid) ?: return ""
 
@@ -152,6 +157,7 @@ object AngConfigManager {
         append: Boolean,
         requestSubscriptionName: (suspend (String?, Set<String>) -> SubscriptionImportChoice?)? = null
     ): Pair<Int, Int> {
+        com.miku.ray.MikuProfiles.impl?.let { return it.importContent(server.orEmpty()) }
         return try {
             val decodedServer = Utils.decode(server)
 
@@ -439,6 +445,13 @@ object AngConfigManager {
     }
 
     fun updateConfigViaSubAll(): SubscriptionUpdateResult {
+        if (com.miku.ray.MikuProfiles.impl != null) {
+            val subscriptions = com.miku.ray.MikuSubscriptions.list()
+            val successes = subscriptions.count { com.miku.ray.MikuSubscriptions.refresh(it.id) }
+            com.miku.ray.MikuProfiles.impl?.sync()
+            return SubscriptionUpdateResult(configCount = successes, successCount = successes,
+                failureCount = subscriptions.size - successes)
+        }
         return try {
             val subscriptions = MmkvManager.decodeSubscriptions()
             subscriptions.fold(SubscriptionUpdateResult()) { acc, subscription ->

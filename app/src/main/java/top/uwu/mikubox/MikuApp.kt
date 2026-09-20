@@ -25,6 +25,15 @@ class MikuApp : com.miku.ray.AngApplication() {
         // The vendored subscription screens read and write this app's profiles
         // through the same seam.
         com.miku.ray.MikuSubscriptions.install(top.uwu.mikubox.core.MikuRaySubscriptions)
+        com.miku.ray.MikuProfiles.install(top.uwu.mikubox.core.MikuRayProfiles)
+        com.miku.ray.MikuRouting.impl = top.uwu.mikubox.core.MikuRayRoutingMode
+        com.miku.ray.MikuSettings.impl = object : com.miku.ray.MikuSettings.Impl {
+            override fun selectedProfileId() = top.uwu.mikubox.profile.MihomoProfileStore.selected(this@MikuApp)?.id
+            override fun vpnFragment() = top.uwu.mikubox.core.MihomoVpnSettingsFragment()
+            override fun coreFragment() = top.uwu.mikubox.core.MihomoSettingsFragment()
+            override fun mixedPort() = top.uwu.mikubox.core.MihomoCoreSettings.listeningPort(this@MikuApp)
+        }
+        top.uwu.mikubox.profile.MihomoSubscriptionUpdater.reconfigure(this)
         // Mirrors this app's profiles into the vendored profile list, so its home
         // screen shows them and its selection maps back to what we connect with.
         runCatching { top.uwu.mikubox.core.MikuRayProfileSync.sync(this) }

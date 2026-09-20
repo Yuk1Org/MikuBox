@@ -155,7 +155,7 @@ class GroupServerFragment : BaseFragment<FragmentGroupServerBinding>() {
                 }
         })
 
-        bottomStatusCard = ownerActivity.findViewById(R.id.blur_bottom_status)
+        bottomStatusCard = ownerActivity.findViewById(R.id.routing_mode)
         bottomStatusCard?.addOnLayoutChangeListener(bottomStatusLayoutListener)
         bottomStatusCard?.post { syncButtonMarginWithBottomStatus() }
 
@@ -290,6 +290,11 @@ class GroupServerFragment : BaseFragment<FragmentGroupServerBinding>() {
     }
 
     private fun editServer(guid: String, profile: ProfileItem) {
+        if (com.miku.ray.MikuProfiles.impl?.get(guid) != null) {
+            ownerActivity.startActivity(Intent(ownerActivity, ServerCustomConfigActivity::class.java)
+                .putExtra("guid", guid).putExtra("isRunning", mainViewModel.isRunning.value))
+            return
+        }
         val intent = Intent().putExtra("guid", guid)
         .putExtra("isRunning", mainViewModel.isRunning.value)
         .putExtra("createConfigType", profile.configType.value)

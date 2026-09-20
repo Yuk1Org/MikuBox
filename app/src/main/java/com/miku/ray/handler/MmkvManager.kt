@@ -129,6 +129,7 @@ object MmkvManager {
     }
 
     fun setSelectServer(guid: String) {
+        com.miku.ray.MikuProfiles.impl?.select(guid)
         mainStorage.encode(KEY_SELECTED_SERVER, guid)
     }
 
@@ -323,6 +324,7 @@ object MmkvManager {
     }
 
     fun removeServer(guid: String) {
+        com.miku.ray.MikuProfiles.impl?.remove(guid)
         if (guid.isBlank()) {
             return
         }
@@ -346,6 +348,7 @@ object MmkvManager {
     }
 
     fun removeServers(guids: List<String>, subscriptionId: String) {
+        guids.forEach { com.miku.ray.MikuProfiles.impl?.remove(it) }
         if (guids.isEmpty()) return
         val subId = getSubscriptionId(subscriptionId)
         val serverList = decodeServerList(subId)

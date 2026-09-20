@@ -27,6 +27,7 @@ import androidx.activity.viewModels
 import androidx.appcompat.widget.SearchView
 import androidx.core.content.FileProvider
 import androidx.core.view.ViewCompat
+import androidx.core.view.updateLayoutParams
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.doOnLayout
 import androidx.core.view.isVisible
@@ -185,6 +186,27 @@ ShareConfigBottomSheet.OnShareOptionClickListener {
         hideLoading()
         window.statusBarColor = Color.TRANSPARENT
 
+        binding.blurBottomStatus.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+            val status = binding.blurBottomStatus
+            val margin = (status.layoutParams as ViewGroup.MarginLayoutParams).bottomMargin
+            binding.routingMode.updateLayoutParams<ViewGroup.MarginLayoutParams> {
+                bottomMargin = margin + status.height + (8 * resources.displayMetrics.density).toInt()
+            }
+        }
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                while (true) {
+                    val selectionVersion = binding.routingMode.selectionVersion
+                    val state = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        com.miku.ray.MikuRouting.impl?.state()
+                    }
+                    if (selectionVersion == binding.routingMode.selectionVersion) {
+                        state?.let { binding.routingMode.render(it) }
+                    }
+                    kotlinx.coroutines.delay(1000)
+                }
+            }
+        }
         setupViewPager()
         setupListeners()
         setupInlineSearchView()
@@ -387,6 +409,10 @@ ShareConfigBottomSheet.OnShareOptionClickListener {
 
     override fun onResume() {
         super.onResume()
+        com.miku.ray.MikuProfiles.impl?.let {
+            it.sync()
+            mainViewModel.reloadServerList()
+        }
 
         refreshSearchBarChip()
         refreshIpStateText()
@@ -746,6 +772,7 @@ ShareConfigBottomSheet.OnShareOptionClickListener {
     }
 
     private fun refreshUiCustomizations() {
+        binding.routingMode.refreshTheme()
         refreshBannerAndHeader()
         BlurBottomStatusController.applyState(this, binding) { mainViewModel.onLayoutTestClicked() }
         updateQuickActionsVisibility()
@@ -961,6 +988,11 @@ ShareConfigBottomSheet.OnShareOptionClickListener {
     }
 
     override fun onMoreOptionClicked(viewId: Int) {
+        if (com.miku.ray.MikuProfiles.impl != null &&
+            viewId in setOf(R.id.real_ping_all, R.id.country_code_all)) {
+            toastInfo(getString(R.string.mihomo_batch_test_unavailable))
+            return
+        }
         when (viewId) {
             R.id.export_all -> exportAll()
             R.id.export_group_file -> exportGroupAsFile()
@@ -1483,6 +1515,10 @@ ShareConfigBottomSheet.OnShareOptionClickListener {
     }
 
     private fun importManually(createConfigType: Int) {
+        if (com.miku.ray.MikuProfiles.impl != null) {
+            startActivity(Intent(this, com.miku.ray.ui.server.ServerCustomConfigActivity::class.java))
+            return
+        }
         if (createConfigType == EConfigType.POLICYGROUP.value) {
             startActivity(
                 Intent()

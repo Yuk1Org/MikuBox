@@ -12,7 +12,7 @@ abstract class ShaderImageView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
     defStyle: Int = 0
-) : ImageView(context, attrs, defStyle) {
+) : androidx.appcompat.widget.AppCompatImageView(context, attrs, defStyle) {
 
     companion object {
         private const val DEBUG = false

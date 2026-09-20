@@ -40,7 +40,6 @@ class AdvancedSettingsActivity : BaseActivity() {
     class AdvancedSettingsFragment : PreferenceFragmentCompat() {
 
         private val systemVpnSettings by lazy { findPreference<Preference>(AppConfig.PREF_SYSTEM_VPN_SETTINGS) }
-        private val mode by lazy { findPreference<ListPreference>(AppConfig.PREF_MODE) }
         private val ipApiUrl by lazy { findPreference<EditTextPreference>(AppConfig.PREF_IP_API_URL) }
         private val realPingConcurrency by lazy { findPreference<EditTextPreference>(AppConfig.PREF_REAL_PING_CONCURRENCY) }
         private val countryCodeTimeout by lazy { findPreference<EditTextPreference>(AppConfig.PREF_COUNTRY_CODE_TIMEOUT) }
@@ -71,15 +70,6 @@ class AdvancedSettingsActivity : BaseActivity() {
                 true
             }
 
-            mode?.setOnPreferenceChangeListener { pref, newValue ->
-                val valueStr = newValue.toString()
-                (pref as? ListPreference)?.let { lp ->
-                    val idx = lp.findIndexOfValue(valueStr)
-                    lp.summary = if (idx >= 0) lp.entries[idx] else valueStr
-                }
-                true
-            }
-            mode?.dialogLayoutResource = R.layout.preference_with_help_link
 
             if (MmkvManager.decodeSettingsBool(AppConfig.PREF_SHOW_REALTIME_TRAFFIC_IP, false)) {
                 ipApiUrl?.isEnabled = false

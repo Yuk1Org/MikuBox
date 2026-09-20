@@ -48,7 +48,7 @@ object MihomoSubscriptionUpdater {
     fun reconfigure(context: Context) {
         runCatching {
             val manager = WorkManager.getInstance(context)
-            val profiles = MihomoProfileStore.profiles(context).filter { it.isSubscription }
+            val profiles = MihomoProfileStore.profiles(context).filter { it.isSubscription && it.updateIntervalMinutes > 0 }
             if (profiles.isEmpty()) {
                 manager.cancelUniqueWork(WORK_NAME)
                 return
@@ -105,9 +105,11 @@ object MihomoSubscriptionUpdater {
         // Through the tunnel: the core's mixed port is what the update is sent to
         // when the user asks for a proxied refresh — and only while it is up,
         // because there is no proxy to route through otherwise.
-        val proxy = if (throughProxy && VpnController.isRunning) {
-            val port = CoreOverrides.mixedPort(context)
-            if (port > 0) Proxy(Proxy.Type.HTTP, InetSocketAddress("127.0.0.1", port)) else null
+        val proxy = if (throughProxy) {
+            check(VpnController.isRunning) { "Connect before updating through the proxy" }
+            val port = com.miku.ray.handler.SettingsManager.getHttpPort()
+            require(port in 1..65535) { "Invalid proxy port" }
+            Proxy(Proxy.Type.HTTP, InetSocketAddress("127.0.0.1", port))
         } else {
             null
         }
@@ -164,7 +166,7 @@ object MihomoSubscriptionUpdater {
         override suspend fun doWork(): Result {
             ensureChannel(applicationContext)
             try {
-                val profiles = MihomoProfileStore.profiles(applicationContext).filter { it.isSubscription }
+                val profiles = MihomoProfileStore.profiles(applicationContext).filter { it.isSubscription && it.updateIntervalMinutes > 0 }
                 var attempted = false
                 var updated = false
                 // One broken subscription must not stop the others, and the

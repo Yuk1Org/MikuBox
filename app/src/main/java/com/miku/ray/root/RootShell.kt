@@ -1,5 +1,7 @@
 package com.miku.ray.root
 
+import com.miku.ray.util.waitForCompat
+
 import android.content.Context
 import com.miku.ray.AppConfig
 import com.miku.ray.util.LogUtil
@@ -28,7 +30,7 @@ object RootShell {
             .redirectErrorStream(true)
             .start()
             val output = process.inputStream.bufferedReader().use { it.readText() }
-            val finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS)
+            val finished = process.waitForCompat(timeoutSeconds, TimeUnit.SECONDS)
             if (!finished) {
                 process.destroy()
                 LogUtil.e(AppConfig.TAG, "RootShell: timed out: $command")

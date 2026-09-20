@@ -34,14 +34,21 @@ object MikuRayCoreBridge : MikuCoreBridge.Impl {
             MihomoProfileStore.select(context, guid)
         }
         VpnController.connect(context)
-        return VpnController.isRunning
+        return true // Request accepted; the service broadcasts the eventual result.
     }
 
     override fun stop(): Boolean {
         val context = MikuRayBridgeContext.application ?: return false
         MihomoTrafficDelta.reset()
         VpnController.disconnect(context)
-        return !VpnController.isRunning
+        return true
+    }
+
+    override fun restart(): Boolean {
+        val context = MikuRayBridgeContext.application ?: return false
+        if (!VpnController.isRunning) return false
+        VpnController.restart(context)
+        return true
     }
 
     override fun version(): String = runCatching { MihomoCore.version() }.getOrDefault("")
@@ -50,10 +57,10 @@ object MikuRayCoreBridge : MikuCoreBridge.Impl {
      * MikuRay measures a delay from a *server config*; the mihomo core measures
      * one from a proxy name, and a profile here is a whole configuration rather
      * than one server. So an arbitrary config cannot be measured without
-     * connecting it, and this reports "never measured" (zero, which the rows show
-     * as nothing) instead of a failure the profile has not actually had.
+     * connecting it, and this reports an unavailable measurement (-1). The UI disables
+     * batch probes of whole configurations.
      */
-    override fun measureDelay(config: String, testUrl: String): Long = 0L
+    override fun measureDelay(config: String, testUrl: String): Long = -1L
 
     /**
      * The delay of the node the tunnel is carrying traffic through — the reading
@@ -62,16 +69,27 @@ object MikuRayCoreBridge : MikuCoreBridge.Impl {
      */
     override fun currentNodeDelay(testUrl: String): Long {
         if (!VpnController.isRunning) return -1L
-        val node = currentNodeName() ?: return -1L
-        return runCatching { MihomoCore.delay(node, testUrl).toLong() }.getOrDefault(-1L)
+        val port = com.miku.ray.handler.SettingsManager.getHttpPort()
+        if (port <= 0) return -1L
+        return runCatching {
+            // The mixed inbound applies the real routing rules. Picking the first
+            // group (usually GLOBAL/DIRECT) can report success while PROXY is broken.
+            val proxy = java.net.Proxy(java.net.Proxy.Type.HTTP,
+                java.net.InetSocketAddress("127.0.0.1", port))
+            val connection = java.net.URL(testUrl).openConnection(proxy) as java.net.HttpURLConnection
+            try {
+                connection.connectTimeout = 5000
+                connection.readTimeout = 5000
+                connection.useCaches = false
+                val start = android.os.SystemClock.elapsedRealtime()
+                if (connection.responseCode in 200..399)
+                    (android.os.SystemClock.elapsedRealtime() - start).coerceAtLeast(1L)
+                else -1L
+            } finally {
+                connection.disconnect()
+            }
+        }.getOrDefault(-1L)
     }
-
-    /** The node the core is carrying traffic through, as the core names it. */
-    private fun currentNodeName(): String? = runCatching {
-        MihomoCore.proxies().values
-            .firstOrNull { group -> group.isGroup && !group.now.isNullOrBlank() }
-            ?.now
-    }.getOrNull()
 
     /**
      * `tag,direction,bytes` lines. MikuRay's traffic loop adds what it reads to
@@ -132,7 +150,7 @@ object MikuRaySubscriptions : com.miku.ray.MikuSubscriptions.Impl {
         // "Auto update off" is stored as no interval: the scheduler keys off it.
         val minutes = if (autoUpdate) intervalMinutes.coerceAtLeast(15) else 0L
         val existing = id?.let { wanted -> store.profiles(context).firstOrNull { it.id == wanted } }
-        return if (existing == null) {
+        val saved = if (existing == null) {
             runCatching {
                 store.createSubscription(
                     context = context,
@@ -155,17 +173,20 @@ object MikuRaySubscriptions : com.miku.ray.MikuSubscriptions.Impl {
             MihomoSubscriptionUpdater.reconfigure(context)
             existing.id
         }
+        MikuRayProfiles.sync()
+        return saved
     }
 
     override fun remove(id: String) {
         val context = MikuRayBridgeContext.application ?: return
         store.remove(context, id)
         MihomoSubscriptionUpdater.reconfigure(context)
+        MikuRayProfiles.sync()
     }
 
     override fun refresh(id: String): Boolean {
         val context = MikuRayBridgeContext.application ?: return false
         val profile = store.profiles(context).firstOrNull { it.id == id } ?: return false
-        return runCatching { MihomoSubscriptionUpdater.update(context, profile) }.isSuccess
+        return runCatching { MihomoSubscriptionUpdater.update(context, profile); MikuRayProfiles.sync() }.isSuccess
     }
 }

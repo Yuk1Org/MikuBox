@@ -54,6 +54,7 @@ object BackupManager {
                 put("exportedAt", System.currentTimeMillis())
                 put("mmkvCount", count)
                 put("files", filesArray)
+                com.miku.ray.MikuProfiles.impl?.let { put("mihomo", it.exportBackup()) }
             }
 
             context.contentResolver.openOutputStream(destination)?.bufferedWriter(Charsets.UTF_8)?.use {
@@ -95,6 +96,7 @@ object BackupManager {
                     put("exportedAt", System.currentTimeMillis())
                     put("mmkvCount", count)
                     put("files", filesArray)
+                com.miku.ray.MikuProfiles.impl?.let { put("mihomo", it.exportBackup()) }
                 }
 
                 outFile.writeText(document.toString(), Charsets.UTF_8)
@@ -142,6 +144,11 @@ object BackupManager {
             return ImportResult.Error("This file is not a supported MikuRay backup.")
         }
 
+        val nativeBackup = document.optString("mihomo").takeIf { it.isNotBlank() }
+        if (com.miku.ray.MikuProfiles.impl != null && nativeBackup == null) {
+            return ImportResult.Error("This backup does not contain mihomo profiles.")
+        }
+        nativeBackup?.let { com.miku.ray.MikuProfiles.impl?.validateBackup(it) }
         val files = document.optJSONArray("files") ?: JSONArray()
         if (files.length() == 0) {
             return ImportResult.Error("Backup contains no data.")
@@ -167,6 +174,8 @@ object BackupManager {
             }
 
             val count = MMKV.restoreAllFromDirectory(restoreDir.absolutePath)
+            if (count <= 0) return ImportResult.Error("MMKV restore produced no data.")
+            nativeBackup?.let { com.miku.ray.MikuProfiles.impl?.restoreBackup(it) }
             SettingsChangeManager.makeSetupGroupTab()
             SettingsChangeManager.makeRestartService()
 

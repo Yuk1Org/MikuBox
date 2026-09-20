@@ -23,6 +23,9 @@ object MikuCoreBridge {
 
         fun stop(): Boolean
 
+        /** Requests an asynchronous reload of the existing service. */
+        fun restart(): Boolean = false
+
         /** Version string of the embedded core, for the about screen. */
         fun version(): String
 
@@ -63,6 +66,8 @@ object MikuCoreBridge {
     fun start(config: String): Boolean = impl.start(config)
 
     fun stop(): Boolean = impl.stop()
+
+    fun restart(): Boolean = impl.restart()
 
     fun version(): String = impl.version()
 

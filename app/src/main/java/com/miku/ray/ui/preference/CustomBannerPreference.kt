@@ -74,7 +74,7 @@ class CustomBannerPreference @JvmOverloads constructor(
 
         val clickTarget = holder.findViewById(R.id.onClick)
         clickTarget?.setOnClickListener {
-            this.performClick()
+            onPreferenceClickListener?.onPreferenceClick(this)
         }
     }
 }

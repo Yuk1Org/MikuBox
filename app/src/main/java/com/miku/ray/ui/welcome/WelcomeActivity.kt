@@ -12,11 +12,12 @@ import com.miku.ray.ui.base.BaseActivity
 import com.miku.ray.ui.splash.SplashActivity
 
 class WelcomeActivity : BaseActivity() {
+    private var currentPage = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        if (MmkvManager.decodeSettingsBool(PREF_WELCOME_SHOW)) {
+        if (MmkvManager.decodeSettingsBool(PREF_WELCOME_COMPLETED, false)) {
             navigateToMain()
             return
         }
@@ -35,25 +36,19 @@ class WelcomeActivity : BaseActivity() {
             insets
         }
 
+        currentPage = savedInstanceState?.getInt(STATE_PAGE, 0)?.coerceIn(0, 2) ?: 0
         setupViewsAndListeners()
     }
 
     private fun setupViewsAndListeners() {
-        val page1 = findViewById<View>(R.id.page1)
-        val page2 = findViewById<View>(R.id.page2)
-        val page3 = findViewById<View>(R.id.page3)
-
-        page2.visibility = View.GONE
-        page3.visibility = View.GONE
+        showPage(currentPage)
 
         findViewById<View>(R.id.page_1button).setOnClickListener {
-            page1.visibility = View.GONE
-            page2.visibility = View.VISIBLE
+            showPage(1)
         }
 
         findViewById<View>(R.id.page_2button).setOnClickListener {
-            page2.visibility = View.GONE
-            page3.visibility = View.VISIBLE
+            showPage(2)
         }
 
         val navigateAction = View.OnClickListener { navigateToMain() }
@@ -63,13 +58,28 @@ class WelcomeActivity : BaseActivity() {
         findViewById<View>(R.id.page_2_skip).setOnClickListener(navigateAction)
     }
 
+    private fun showPage(page: Int) {
+        currentPage = page
+        listOf(R.id.page1, R.id.page2, R.id.page3).forEachIndexed { index, id ->
+            findViewById<View>(id).visibility = if (index == page) View.VISIBLE else View.GONE
+        }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putInt(STATE_PAGE, currentPage)
+        super.onSaveInstanceState(outState)
+    }
+
     private fun navigateToMain() {
-        MmkvManager.encodeSettings(PREF_WELCOME_SHOW, true)
+        MmkvManager.encodeSettings(PREF_WELCOME_COMPLETED, true)
         startActivity(Intent(this, SplashActivity::class.java))
         finish()
     }
 
     companion object {
-        const val PREF_WELCOME_SHOW = "pref_welcome_show"
+        // Do not inherit the old port's completion flag: MikuBox's introduction
+        // must be shown once even when those settings already exist.
+        private const val PREF_WELCOME_COMPLETED = "pref_mikubox_welcome_completed"
+        private const val STATE_PAGE = "welcome_page"
     }
 }

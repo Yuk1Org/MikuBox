@@ -152,7 +152,9 @@ object MihomoSubscriptionUpdater {
             .versionName
             ?.removePrefix("UwU-")
             ?: "unknown"
-        return "MikuBox/$appVersion mihomo/${MihomoCore.version()} android/${Build.VERSION.RELEASE}"
+        // Optional version metadata must not prevent downloading a subscription.
+        val coreVersion = runCatching { MihomoCore.version() }.getOrDefault("unknown")
+        return "MikuBox/$appVersion mihomo/$coreVersion android/${Build.VERSION.RELEASE}"
     }
 
     class UpdateWorker(

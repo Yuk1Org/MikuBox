@@ -1,6 +1,9 @@
 package com.miku.ray.ui.subscription
 
 import android.os.Bundle
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
@@ -34,6 +37,8 @@ class SubEditActivity : HelperBaseActivity() {
         get() = intent.getStringExtra("subId")?.takeIf { it.isNotBlank() }
             ?: intent.getStringExtra("profileId")?.takeIf { it.isNotBlank() }
 
+    private var saving = false
+
     private lateinit var name: AppCompatEditText
     private lateinit var url: AppCompatEditText
     private lateinit var interval: AppCompatEditText
@@ -45,6 +50,7 @@ class SubEditActivity : HelperBaseActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        savedInstanceState?.getString("savedSubscriptionId")?.let { intent.putExtra("subId", it) }
         setContentView(R.layout.activity_sub_edit)
 
         setupToolbar(
@@ -62,14 +68,15 @@ class SubEditActivity : HelperBaseActivity() {
 
         val entries = ArrayAdapter(this, android.R.layout.simple_list_item_1, boolEntries)
         autoUpdate.setAdapter(entries)
+        labelOf(autoUpdate)?.hint = getString(R.string.sub_auto_update)
         throughProxy.setAdapter(entries)
         // The second dropdown is MikuRay's own "auto update" switch; here it
         // carries the one Clash flag its editor has no other place for. Its wording
         // is app-specific, so it is set here rather than taken from the vendored
         // strings (which have no equivalent).
         labelOf(throughProxy)?.apply {
-            hint = getString(R.string.title_pref_proxy_sharing_enabled)
-            helperText = getString(R.string.summary_pref_proxy_sharing_enabled)
+            hint = getString(R.string.subscription_update_through_proxy)
+            helperText = getString(R.string.subscription_update_through_proxy_summary)
         }
 
         hide(
@@ -104,15 +111,25 @@ class SubEditActivity : HelperBaseActivity() {
     private fun load() {
         val existing = subscriptionId
             ?.let { id -> MikuSubscriptions.list().firstOrNull { it.id == id } }
-            ?: return
+            ?: run {
+                autoUpdate.setText(entryForBool(false), false)
+                throughProxy.setText(entryForBool(false), false)
+                return
+            }
         name.setText(existing.name)
         url.setText(existing.url)
-        interval.setText((existing.intervalMinutes / 60).toString())
+        interval.setText(existing.intervalMinutes.toString())
         autoUpdate.setText(entryForBool(existing.autoUpdate), false)
         throughProxy.setText(entryForBool(existing.throughProxy), false)
     }
 
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putString("savedSubscriptionId", subscriptionId)
+        super.onSaveInstanceState(outState)
+    }
+
     private fun save() {
+        if (saving) return
         val address = url.text?.toString()?.trim().orEmpty()
         if (address.isEmpty()) {
             // MikuRay's own copy for an unusable subscription; the vendored
@@ -120,16 +137,30 @@ class SubEditActivity : HelperBaseActivity() {
             url.error = getString(R.string.empty_subscription_list_title)
             return
         }
-        val hours = interval.text?.toString()?.trim()?.toLongOrNull()?.coerceAtLeast(0L) ?: 0L
-        MikuSubscriptions.upsert(
-            id = subscriptionId,
-            name = name.text?.toString()?.trim().orEmpty(),
-            url = address,
-            autoUpdate = boolValue(autoUpdate),
-            intervalMinutes = hours * 60,
-            throughProxy = boolValue(throughProxy),
-        )
-        finish()
+        val minutes = interval.text?.toString()?.trim()?.toLongOrNull()?.coerceAtLeast(0L) ?: 0L
+        val title = name.text?.toString()?.trim().orEmpty()
+        val automatic = boolValue(autoUpdate)
+        val proxy = boolValue(throughProxy)
+        saving = true
+        showLoading()
+        lifecycleScope.launch {
+            try {
+                val fetched = MikuSubscriptions.saveAndRefresh(
+                    subscriptionId, title, address, automatic, minutes, proxy,
+                    onSaved = { intent.putExtra("subId", it) },
+                )
+                if (fetched) finish()
+                else android.widget.Toast.makeText(this@SubEditActivity,
+                    R.string.subscription_initial_fetch_failed, android.widget.Toast.LENGTH_LONG).show()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                url.error = error.message ?: getString(R.string.title_alerter_error)
+            } finally {
+                saving = false
+                hideLoading()
+            }
+        }
     }
 
     // region field helpers

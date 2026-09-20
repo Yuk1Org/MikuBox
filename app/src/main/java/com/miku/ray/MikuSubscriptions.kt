@@ -79,6 +79,20 @@ object MikuSubscriptions {
         throughProxy: Boolean,
     ): String? = impl.upsert(id, name, url, autoUpdate, intervalMinutes, throughProxy)
 
+    /** Saving a new/empty/repointed subscription includes its first download. */
+    suspend fun saveAndRefresh(
+        id: String?, name: String, url: String, autoUpdate: Boolean,
+        intervalMinutes: Long, throughProxy: Boolean,
+        onSaved: (String) -> Unit = {},
+    ): Boolean {
+        val previous = id?.let { wanted -> list().firstOrNull { it.id == wanted } }
+        val saved = requireNotNull(upsert(id, name, url, autoUpdate, intervalMinutes, throughProxy))
+        // Give the editor its stable ID before starting cancellable network work.
+        onSaved(saved)
+        val needsFetch = previous == null || previous.lastUpdatedMillis == 0L || previous.url != url
+        return !needsFetch || kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { refresh(saved) }
+    }
+
     fun remove(id: String) = impl.remove(id)
 
     fun refresh(id: String): Boolean = impl.refresh(id)

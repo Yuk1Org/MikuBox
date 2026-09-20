@@ -16,8 +16,8 @@ class MihomoImportActivity : Activity() {
             // import settles so the transient URI grant outlives the work.
             Thread {
                 val result = runCatching {
-                    MihomoProfileImporter.importUri(this, data)
-                    top.uwu.mikubox.core.MikuRayProfiles.sync()
+                    try { MihomoProfileImporter.importUri(this, data) }
+                    finally { top.uwu.mikubox.core.MikuRayProfiles.sync() }
                 }
                 runOnUiThread {
                     android.widget.Toast.makeText(this, result.exceptionOrNull()?.message

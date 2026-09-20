@@ -17,8 +17,12 @@ object MihomoProfileImporter {
         url: String,
         intervalMinutes: Long = 24 * 60,
         updateWhenConnectedOnly: Boolean = false,
-    ): MihomoProfileStore.Profile =
-        MihomoProfileStore.createSubscription(context, name, url, intervalMinutes, updateWhenConnectedOnly)
+    ): MihomoProfileStore.Profile {
+        val profile = MihomoProfileStore.createSubscription(context, name, url, intervalMinutes, updateWhenConnectedOnly)
+        // First fetch is an import operation, independent of the periodic schedule.
+        MihomoSubscriptionUpdater.update(context, profile)
+        return MihomoProfileStore.profiles(context).first { it.id == profile.id }
+    }
 
     fun importUri(context: Context, uri: Uri): MihomoProfileStore.Profile {
         val subscriptionUrl = when {

@@ -93,6 +93,15 @@ object MikuSubscriptions {
         return !needsFetch || kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { refresh(saved) }
     }
 
+    fun refreshAll(): com.miku.ray.dto.SubscriptionUpdateResult {
+        var result = com.miku.ray.dto.SubscriptionUpdateResult()
+        list().forEach { entry ->
+            result += if (refresh(entry.id)) com.miku.ray.dto.SubscriptionUpdateResult(configCount = 1, successCount = 1)
+                else com.miku.ray.dto.SubscriptionUpdateResult(failureCount = 1)
+        }
+        return result
+    }
+
     fun remove(id: String) = impl.remove(id)
 
     fun refresh(id: String): Boolean = impl.refresh(id)

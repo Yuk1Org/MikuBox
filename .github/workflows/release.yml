@@ -60,8 +60,17 @@ jobs:
           ALIAS_NAME: ${{ secrets.ALIAS_NAME }}
           ALIAS_PASS: ${{ secrets.ALIAS_PASS }}
 
+      - name: Rename APKs to mikubox-<tag>-<abi>
+        run: |
+          cd app/build/outputs/apk/release
+          for apk in app-*-release.apk; do
+            abi="${apk#app-}"
+            mv "$apk" "mikubox-${GITHUB_REF_NAME}-${abi%-release.apk}.apk"
+          done
+          ls -1 ./*.apk
+
       - name: Publish the GitHub release
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
-          files: app/build/outputs/apk/release/*.apk
+          files: app/build/outputs/apk/release/mikubox-*.apk

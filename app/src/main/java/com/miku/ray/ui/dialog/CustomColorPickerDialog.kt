@@ -19,7 +19,7 @@ class CustomColorPickerDialog : DialogFragment() {
 
         fun show(
             fragmentManager: androidx.fragment.app.FragmentManager,
-            currentColor: Int = Color.parseColor("#6750A4"),
+            currentColor: Int = Color.parseColor("#006A60"),
             onApplied: () -> Unit = {},
         ) {
             CustomColorPickerDialog().apply {
@@ -30,7 +30,7 @@ class CustomColorPickerDialog : DialogFragment() {
     }
 
     var onAppliedCallback: () -> Unit = {}
-    private var selectedColor: Int = Color.parseColor("#6750A4")
+    private var selectedColor: Int = Color.parseColor("#006A60")
 
     override fun onStart() {
         super.onStart()

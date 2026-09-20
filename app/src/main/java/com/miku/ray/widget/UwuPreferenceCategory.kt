@@ -31,8 +31,11 @@ class UwuPreferenceCategory @JvmOverloads constructor(
         }
         val frame = iconView.parent as? android.view.ViewGroup ?: return
 
+        // Use colorPrimary → colorPrimaryContainer so the circle stays in the
+        // theme's primary hue; colorTertiary is a purple-grey in most M3
+        // palettes and makes the icon backdrop look off-theme.
         val colorStart = context.getColorAttr("colorPrimary")
-        val colorEnd = context.getColorAttr("colorTertiary")
+        val colorEnd = context.getColorAttr("colorPrimaryContainer")
 
         frame.background = GradientDrawable(
             GradientDrawable.Orientation.TL_BR,

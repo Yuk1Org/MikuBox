@@ -42,7 +42,7 @@
         <item name="colorSurfaceContainerHigh">#ff1a1a1a</item>
         <item name="colorSurfaceContainerHighest">#ff242424</item>
         <item name="colorSurfaceVariant">#ff1a1a1a</item>
-        <item name="colorOnSurfaceVariant">#ffcac4d0</item>
+        <item name="colorOnSurfaceVariant">#ffc4c7c5</item>
 
         <item name="colorOutline">#ff938f99</item>
         <item name="colorOutlineVariant">#ff49454f</item>

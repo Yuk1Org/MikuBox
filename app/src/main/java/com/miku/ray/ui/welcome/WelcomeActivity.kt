@@ -9,7 +9,8 @@ import androidx.core.view.updatePadding
 import com.miku.ray.R
 import com.miku.ray.handler.MmkvManager
 import com.miku.ray.ui.base.BaseActivity
-import com.miku.ray.ui.splash.SplashActivity
+import com.miku.ray.ui.main.MainActivity
+import com.miku.ray.ui.splash.StartupArtwork
 
 class WelcomeActivity : BaseActivity() {
     private var currentPage = 0
@@ -18,7 +19,8 @@ class WelcomeActivity : BaseActivity() {
         super.onCreate(savedInstanceState)
 
         if (MmkvManager.decodeSettingsBool(PREF_WELCOME_COMPLETED, false)) {
-            navigateToMain()
+            window.decorView.viewTreeObserver.addOnPreDrawListener { false }
+            navigateToMain(awaitSystemHandoff = true)
             return
         }
 
@@ -70,9 +72,14 @@ class WelcomeActivity : BaseActivity() {
         super.onSaveInstanceState(outState)
     }
 
-    private fun navigateToMain() {
+    @Suppress("DEPRECATION")
+    private fun navigateToMain(awaitSystemHandoff: Boolean = false) {
         MmkvManager.encodeSettings(PREF_WELCOME_COMPLETED, true)
-        startActivity(Intent(this, SplashActivity::class.java))
+        startActivity(Intent(this, MainActivity::class.java).putExtra(
+            StartupArtwork.EXTRA_SHOW,
+            MmkvManager.decodeSettingsBool(com.miku.ray.AppConfig.PREF_SHOW_SPLASH, false),
+        ).putExtra(StartupArtwork.EXTRA_SYSTEM_HANDOFF, awaitSystemHandoff))
+        overridePendingTransition(0, 0)
         finish()
     }
 

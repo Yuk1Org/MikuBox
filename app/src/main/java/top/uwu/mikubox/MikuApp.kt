@@ -30,13 +30,17 @@ class MikuApp : com.miku.ray.AngApplication() {
         com.miku.ray.MikuSettings.impl = object : com.miku.ray.MikuSettings.Impl {
             override fun selectedProfileId() = top.uwu.mikubox.profile.MihomoProfileStore.selected(this@MikuApp)?.id
             override fun vpnFragment() = top.uwu.mikubox.core.MihomoVpnSettingsFragment()
+            override fun advancedFragment() = top.uwu.mikubox.core.MihomoAdvancedSettingsFragment()
             override fun coreFragment() = top.uwu.mikubox.core.MihomoSettingsFragment()
+            override fun proxyCredentials(): Pair<String, String>? = top.uwu.mikubox.core.CoreOverrides.proxyCredentials(this@MikuApp)
             override fun mixedPort() = top.uwu.mikubox.core.MihomoCoreSettings.listeningPort(this@MikuApp)
         }
-        top.uwu.mikubox.profile.MihomoSubscriptionUpdater.reconfigure(this)
-        // Mirrors this app's profiles into the vendored profile list, so its home
-        // screen shows them and its selection maps back to what we connect with.
-        runCatching { top.uwu.mikubox.core.MikuRayProfileSync.sync(this) }
+        // Scheduling does not gate the first frame. The home screen refreshes
+        // its persisted profile mirror on IO when resumed, instead of parsing
+        // every configuration here and repeating it on the main thread there.
+        Thread({
+            top.uwu.mikubox.profile.MihomoSubscriptionUpdater.reconfigure(this)
+        }, "mihomo-subscription-init").start()
         // Section artwork: MikuRay's own default is the `gradient` style, which is
         // also the only one drawn as a shape badge with a tinted glyph — the other
         // seventeen are character artwork. Seeded once so a fresh install matches
@@ -93,7 +97,11 @@ class MikuApp : com.miku.ray.AngApplication() {
     }
 
     override fun onActivityStarted(activity: Activity) = Unit
-    override fun onActivityResumed(activity: Activity) = Unit
+    override fun onActivityResumed(activity: Activity) {
+        if (top.uwu.mikubox.core.OnDemandSettings.enabled(this)) {
+            runCatching { top.uwu.mikubox.service.OnDemandService.refresh(activity) }
+        }
+    }
     override fun onActivityPaused(activity: Activity) = Unit
     override fun onActivityStopped(activity: Activity) = Unit
     override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) = Unit

@@ -30,7 +30,7 @@ import com.miku.ray.MikuRouting
 import com.miku.ray.R
 
 /** Slide first, resize second. Cancelling a transition always starts from its visible frame. */
-class RoutingModeView @JvmOverloads constructor(context: Context, attrs: AttributeSet? = null) : LinearLayout(context, attrs) {
+class RoutingModeView @JvmOverloads constructor(context: Context, attrs: AttributeSet? = null) : com.miku.ray.blurview.BlurView(context, attrs) {
     private val modes = listOf("rule", "global", "direct")
     private val track = FrameLayout(context)
     private val indicator = View(context)
@@ -50,12 +50,13 @@ class RoutingModeView @JvmOverloads constructor(context: Context, attrs: Attribu
     private fun shape(fill: Int, radius: Int) = GradientDrawable().apply { setColor(fill); cornerRadius = dp(radius).toFloat() }
 
     init {
-        orientation = VERTICAL
+        val column = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+        addView(column, FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
         setPadding(dp(6), dp(6), dp(6), dp(6))
         background = shape(context.getColorAttr("colorCard"), 28)
         elevation = dp(3).toFloat()
         clipToOutline = true
-        addView(track, LayoutParams(LayoutParams.MATCH_PARENT, dp(48)))
+        column.addView(track, LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, dp(48)))
         indicator.background = shape(primary, 23)
         track.addView(indicator, FrameLayout.LayoutParams(0, LayoutParams.MATCH_PARENT))
         val row = LinearLayout(context)
@@ -67,7 +68,7 @@ class RoutingModeView @JvmOverloads constructor(context: Context, attrs: Attribu
                 setOnClickListener { chooseMode(modes[index]) }
             }
             labels += label
-            row.addView(label, LayoutParams(0, LayoutParams.MATCH_PARENT, 1f))
+            row.addView(label, LinearLayout.LayoutParams(0, LayoutParams.MATCH_PARENT, 1f))
         }
         exit.apply {
             gravity = Gravity.CENTER
@@ -79,7 +80,7 @@ class RoutingModeView @JvmOverloads constructor(context: Context, attrs: Attribu
             setOnClickListener { showExits() }
             visibility = GONE
         }
-        addView(exit, LayoutParams(LayoutParams.MATCH_PARENT, 0))
+        column.addView(exit, LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, 0))
         track.addOnLayoutChangeListener { _, l, _, r, _, oldL, _, oldR, _ ->
             if (r - l != oldR - oldL && r > l) {
                 cancelAnimation()

@@ -32,12 +32,12 @@ class AdvancedSettingsActivity : BaseActivity() {
 
         if (savedInstanceState == null) {
             supportFragmentManager.beginTransaction()
-            .replace(R.id.settings_container, AdvancedSettingsFragment())
+            .replace(R.id.settings_container, com.miku.ray.MikuSettings.impl?.advancedFragment() ?: AdvancedSettingsFragment())
             .commit()
         }
     }
 
-    class AdvancedSettingsFragment : PreferenceFragmentCompat() {
+    open class AdvancedSettingsFragment : PreferenceFragmentCompat() {
 
         private val systemVpnSettings by lazy { findPreference<Preference>(AppConfig.PREF_SYSTEM_VPN_SETTINGS) }
         private val ipApiUrl by lazy { findPreference<EditTextPreference>(AppConfig.PREF_IP_API_URL) }

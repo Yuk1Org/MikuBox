@@ -122,6 +122,8 @@ object CoreServiceManager {
         return result
     }
 
+    private val connectionEpoch = java.util.concurrent.atomic.AtomicLong()
+    private val ipSequence = java.util.concurrent.atomic.AtomicLong()
     private val backgroundScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var receiverRegistered = false
 
@@ -178,6 +180,8 @@ object CoreServiceManager {
      * announcement carries the state the service already reached.
      */
     fun announceTunnelStarted(service: Service) {
+        connectionEpoch.incrementAndGet()
+        com.miku.ray.handler.MmkvManager.encodeSettings(AppConfig.PREF_VPN_CONNECT_START_TIME, System.currentTimeMillis())
         registerControlReceiver(service)
         MessageUtil.sendMsg2UI(service, AppConfig.MSG_STATE_START_SUCCESS, false)
         measureConnection(service, "")
@@ -185,6 +189,8 @@ object CoreServiceManager {
 
     /** The tunnel is down: nothing left to answer, and the UI has to hear about it. */
     fun announceTunnelStopped(service: Service) {
+        connectionEpoch.incrementAndGet()
+        com.miku.ray.handler.MmkvManager.encodeSettings(AppConfig.PREF_VPN_CONNECT_START_TIME, 0L)
         unregisterControlReceiver(service)
         MessageUtil.sendMsg2UI(service, AppConfig.MSG_STATE_STOP_SUCCESS, "")
     }
@@ -233,7 +239,7 @@ object CoreServiceManager {
                 service.getString(R.string.connection_test_error, "")
             }
             MessageUtil.sendMsg2UI(service, AppConfig.MSG_MEASURE_DELAY_SUCCESS, result, requestId)
-            if (delay >= 0L) measureIp(service, requestId)
+            if (isRunning()) measureIp(service, requestId)
         }
     }
 
@@ -242,9 +248,13 @@ object CoreServiceManager {
      * inbound, so what comes back is what a browser would see.
      */
     private fun measureIp(service: Service, requestId: String) {
+        val epoch = connectionEpoch.get()
+        val sequence = ipSequence.incrementAndGet()
         backgroundScope.launch {
             val ip = runCatching { SpeedtestManager.getRemoteIPInfo() }.getOrNull()
-            MessageUtil.sendMsg2UI(service, AppConfig.MSG_MEASURE_IP_SUCCESS, ip.orEmpty(), requestId)
+            if (!ip.isNullOrBlank() && isRunning() && epoch == connectionEpoch.get() && sequence == ipSequence.get()) {
+                MessageUtil.sendMsg2UI(service, AppConfig.MSG_MEASURE_IP_SUCCESS, ip, requestId)
+            }
         }
     }
 }

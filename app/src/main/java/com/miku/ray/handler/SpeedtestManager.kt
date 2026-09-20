@@ -76,23 +76,26 @@ object SpeedtestManager {
         val proxyPassword = SettingsManager.getSocksPassword()
         val httpPort = SettingsManager.getHttpPort()
         if (httpPort == 0) return null
-        val content = HttpUtil.getUrlContent(
-            UrlContentRequest(
-                url = url,
-                timeout = 5000,
-                httpPort = httpPort,
-                proxyUsername = proxyUsername,
-                proxyPassword = proxyPassword
-            )
-        ) ?: return null
-        val ipInfo = JsonUtil.fromJsonSafe(content, IPAPIInfo::class.java) ?: return null
-
-        val ip = listOf(
-            ipInfo.ip,
-            ipInfo.clientIp,
-            ipInfo.ip_addr,
-            ipInfo.query
-        ).firstOrNull { !it.isNullOrBlank() }
+        // A temporary API outage must not erase a valid IP. Try independent
+        // endpoints through the same mixed inbound, never directly from the app.
+        val urls = listOf(url.replace("{ip}", "", ignoreCase = true),
+            "https://api.ipify.org?format=json", "https://api.ip.sb/geoip").distinct()
+        var parsed: IPAPIInfo? = null
+        var address: String? = null
+        for (endpoint in urls) {
+            val candidate = runCatching {
+                val content = HttpUtil.getUrlContent(UrlContentRequest(
+                    url = endpoint, timeout = 5000, httpPort = httpPort,
+                    proxyUsername = proxyUsername, proxyPassword = proxyPassword,
+                )) ?: return@runCatching null
+                JsonUtil.fromJsonSafe(content, IPAPIInfo::class.java)
+            }.getOrNull() ?: continue
+            val candidateIp = listOf(candidate.ip, candidate.clientIp, candidate.ip_addr, candidate.query)
+                .firstOrNull { !it.isNullOrBlank() && Utils.isPureIpAddress(it) }
+            if (candidateIp != null) { parsed = candidate; address = candidateIp; break }
+        }
+        val ipInfo = parsed ?: return null
+        val ip = address ?: return null
 
         val country = listOf(
             ipInfo.country_code,
@@ -118,6 +121,6 @@ object SpeedtestManager {
         val flag = Utils.countryCodeToFlag(country)
         val flagPrefix = if (flag.isNotEmpty()) "$flag " else ""
         val ispSuffix = if (!isp.isNullOrBlank()) " · $isp" else ""
-        return "${flagPrefix}(${country ?: "unknown"}) ${ip ?: "unknown"}$ispSuffix"
+        return if (country.isNullOrBlank()) "$ip$ispSuffix" else "${flagPrefix}($country) $ip$ispSuffix"
     }
 }

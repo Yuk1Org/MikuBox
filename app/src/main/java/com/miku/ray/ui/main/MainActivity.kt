@@ -181,6 +181,11 @@ ShareConfigBottomSheet.OnShareOptionClickListener {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(binding.root)
+        com.miku.ray.ui.splash.StartupArtwork.install(this,
+            savedInstanceState == null && intent.getBooleanExtra(com.miku.ray.ui.splash.StartupArtwork.EXTRA_SHOW, false),
+            intent.getBooleanExtra(com.miku.ray.ui.splash.StartupArtwork.EXTRA_SYSTEM_HANDOFF, false))
+        intent.removeExtra(com.miku.ray.ui.splash.StartupArtwork.EXTRA_SHOW)
+        intent.removeExtra(com.miku.ray.ui.splash.StartupArtwork.EXTRA_SYSTEM_HANDOFF)
         showTestBuildInfoIfNeeded()
 
         hideLoading()
@@ -215,9 +220,6 @@ ShareConfigBottomSheet.OnShareOptionClickListener {
         setupViewModel()
         setupBannerHome()
 
-        refreshUiCustomizations()
-        updateSnowflakesVisibility()
-
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 SettingsChangeManager.uiCustomizationChanged.collect {
@@ -235,6 +237,7 @@ ShareConfigBottomSheet.OnShareOptionClickListener {
         checkAndRequestPermission(PermissionType.POST_NOTIFICATIONS) {}
         maybeShowTrafficDetailFromIntent(intent)
         handleIncomingFileIntent(intent)
+
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -410,8 +413,11 @@ ShareConfigBottomSheet.OnShareOptionClickListener {
     override fun onResume() {
         super.onResume()
         com.miku.ray.MikuProfiles.impl?.let {
-            it.sync()
-            mainViewModel.reloadServerList()
+            lifecycleScope.launch {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { it.sync() }
+                mainViewModel.reloadServerList()
+                refreshGroupTabTitles(true)
+            }
         }
 
         refreshSearchBarChip()
@@ -1476,12 +1482,7 @@ ShareConfigBottomSheet.OnShareOptionClickListener {
     }
 
     private fun updateFabTimerText() {
-        val startTime = MmkvManager.decodeSettingsLong(AppConfig.PREF_VPN_CONNECT_START_TIME, 0L)
-        if (startTime == 0L) {
-            binding.fab.text = "00:00:00"
-            return
-        }
-        val elapsed = ((System.currentTimeMillis() - startTime) / 1000).coerceAtLeast(0L)
+        val elapsed = com.miku.ray.MikuCoreBridge.connectionElapsedMillis() / 1000
         val h = elapsed / 3600
         val m = (elapsed % 3600) / 60
         val s = elapsed % 60

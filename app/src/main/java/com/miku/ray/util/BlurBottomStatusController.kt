@@ -179,6 +179,16 @@ object BlurBottomStatusController {
             applyBounceTouchAnimation(this, glowDrawable, onTestClick)
         }
 
+        binding.routingMode.apply {
+            setupWith(binding.mainContent)
+                .setFrameClearDrawable(activity.window.decorView.background)
+                .setBlurAutoUpdate(true)
+            background = GradientDrawable().apply { setColor(glassFillColor); cornerRadius = radiusPx }
+            clipToOutline = true
+            if (blurRadius > MIN_BLUR_RADIUS) setBlurRadius(blurRadius)
+            setBlurEnabled(blurRadius > MIN_BLUR_RADIUS)
+            setOverlayColor(glassFillColor)
+        }
         blurViewReference = WeakReference(binding.blurBottomStatus)
         glassDrawableReference = WeakReference(glassDrawable)
 
@@ -216,6 +226,12 @@ object BlurBottomStatusController {
             applyBounceTouchAnimation(this, null, onTestClick)
         }
 
+        binding.routingMode.apply {
+            setBlurAutoUpdate(false)
+            setBlurEnabled(false)
+            setOverlayColor(Color.TRANSPARENT)
+            refreshTheme()
+        }
         updateChildViews(activity, binding, isBlurOn = false)
     }
 

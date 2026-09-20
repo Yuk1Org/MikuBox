@@ -122,6 +122,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             if (refreshList) notifyListChanged(-1)
             return
         }
+        _ipResultText.value = ""
         _isRunning.value = running
         if (!running) markConnectionStopped()
         if (refreshList) notifyListChanged(-1)
@@ -766,7 +767,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     || event.requestId == activeCurrentTestId
                     || event.requestId == lastCurrentTestId
                 ) {
-                    _ipResultText.value = event.ip.orEmpty()
+                    if (isRunning.value && !event.ip.isNullOrBlank()) _ipResultText.value = event.ip
                 }
             }
 

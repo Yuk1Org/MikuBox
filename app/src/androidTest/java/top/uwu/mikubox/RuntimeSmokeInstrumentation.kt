@@ -15,6 +15,11 @@ class RuntimeSmokeInstrumentation : Instrumentation() {
     override fun onStart() {
         waitForIdleSync()
         val output = Bundle()
+        if (arguments.getString("quick_actions") == "true") {
+            try { finish(android.app.Activity.RESULT_OK, QuickActionsSmoke.run(this)) }
+            catch (error: Throwable) { output.putString("error", android.util.Log.getStackTraceString(error)); finish(android.app.Activity.RESULT_CANCELED, output) }
+            return
+        }
         try {
             val context = targetContext
             MmkvManager.encodeSettings("pref_mikubox_welcome_completed", true)

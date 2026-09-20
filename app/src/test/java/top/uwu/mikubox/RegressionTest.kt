@@ -31,6 +31,51 @@ class RegressionTest {
         context = RuntimeEnvironment.getApplication()
     }
 
+    @Test fun countryNameDoesNotHideValidCountryCode() {
+        val info = com.miku.ray.dto.IPAPIInfo(country = "Hong Kong", countryCode = "hk")
+        assertEquals("HK", com.miku.ray.handler.SpeedtestManager.countryCode(info))
+        assertNull(com.miku.ray.handler.SpeedtestManager.countryCode(info.copy(countryCode = null)))
+    }
+
+    @Test fun nativeProbeRemovesListenersAndKeepsProxyDefinition() {
+        val original = """
+            mixed-port: 7890
+            allow-lan: true
+            authentication: ["user:secret"]
+            external-controller: 0.0.0.0:9090
+            listeners: [{name: leaked, type: http, port: 1234}]
+            proxies: [{name: Test, type: socks5, server: example.com, port: 1080}]
+            proxy-groups: [{name: Choose, type: select, proxies: [Test]}]
+            rules: [MATCH,DIRECT]
+        """.trimIndent()
+        val (prepared, target) = top.uwu.mikubox.core.NativeProfileProbe.prepare(original, 18090)
+        val raw = org.yaml.snakeyaml.Yaml().load<Map<String, Any>>(prepared)
+        assertEquals("Choose", target)
+        assertEquals(18090, raw["mixed-port"])
+        assertEquals(false, raw["allow-lan"])
+        assertEquals(emptyList<String>(), raw["authentication"])
+        assertFalse(raw.containsKey("listeners"))
+        assertFalse(raw.containsKey("external-controller"))
+        assertTrue(prepared.contains("example.com"))
+    }
+
+    @Test fun profileProbeRefusesToReplaceMainProcessCore() {
+        MikuRayBridgeContext.attach(context)
+        assertThrows(IllegalStateException::class.java) {
+            top.uwu.mikubox.core.NativeProfileProbe.delay("rules: [MATCH,DIRECT]", "https://example.com")
+        }
+    }
+
+    @Test fun nativeQuickUpdateRefreshesSubscriptionsWithScheduleDisabled() = withSubscriptionServer { url, requests, _ ->
+        MikuRayBridgeContext.attach(context)
+        com.miku.ray.MikuSubscriptions.install(MikuRaySubscriptions)
+        val profile = MihomoProfileStore.createSubscription(context, "Quick update", url, 0)
+        val result = com.miku.ray.MikuSubscriptions.refreshAll()
+        assertEquals(1, result.successCount)
+        assertEquals(1, requests.get())
+        assertTrue(MihomoProfileStore.profiles(context).first { it.id == profile.id }.config.isNotBlank())
+    }
+
     private fun withSubscriptionServer(test: (String, java.util.concurrent.atomic.AtomicInteger, java.util.concurrent.atomic.AtomicInteger) -> Unit) {
         val requests = java.util.concurrent.atomic.AtomicInteger()
         val status = java.util.concurrent.atomic.AtomicInteger(200)

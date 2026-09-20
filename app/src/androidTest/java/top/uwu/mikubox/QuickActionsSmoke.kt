@@ -25,15 +25,17 @@ object QuickActionsSmoke {
                 Thread.sleep(100)
             }
         }
-        fun ipUrl(country: String, ip: String): String = "https://httpbingo.org/base64/" +
-            android.util.Base64.encodeToString("{\"country_code\":\"$country\",\"ip\":\"$ip\"}".toByteArray(), android.util.Base64.NO_WRAP)
+        fun ipUrl(country: String): String = "http://10.0.2.2:18081/ip/$country"
         MmkvManager.encodeSettings("pref_mikubox_welcome_completed", true)
         MmkvManager.encodeSettings(AppConfig.PREF_SHOW_SPLASH, false)
         MmkvManager.encodeSettings(AppConfig.PREF_SHOW_QUICK_ACTIONS, true)
         MmkvManager.encodeSettings(AppConfig.PREF_SHOW_REALTIME_TRAFFIC_IP, false)
         MmkvManager.encodeSettings(AppConfig.PREF_VPN_BYPASS_LAN, "2")
-        MmkvManager.encodeSettings(AppConfig.PREF_IP_API_URL, ipUrl("HK", "103.30.78.42"))
-        MmkvManager.encodeSettings(AppConfig.PREF_DELAY_TEST_URL, "https://httpbingo.org/status/204")
+        MmkvManager.encodeSettings(AppConfig.PREF_IP_API_URL, ipUrl("HK"))
+        MmkvManager.encodeSettings(AppConfig.PREF_DELAY_TEST_URL, "http://10.0.2.2:18081/delay")
+        // A previously failed run may have left global mode behind; FOLLOW makes
+        // the profile's own `mode: rule` win again so the switch step is fresh.
+        MihomoCoreSettings.setMode(ctx, MihomoCoreSettings.ProxyMode.FOLLOW)
         CoreOverrides.setExtra(ctx, "script.enabled", "false")
         val config = """
             mode: rule
@@ -45,7 +47,19 @@ object QuickActionsSmoke {
             rules:
               - MATCH,Test
         """.trimIndent()
-        val url = "https://httpbingo.org/base64/" + android.util.Base64.encodeToString(config.toByteArray(), android.util.Base64.NO_WRAP)
+        // Publish the config on the fixture so the subscription download and
+        // every later step stay on the local network, no public service needed.
+        val upload = java.net.URL("http://10.0.2.2:18081/sub/qa")
+            .openConnection(java.net.Proxy.NO_PROXY) as java.net.HttpURLConnection
+        upload.requestMethod = "POST"; upload.doOutput = true
+        upload.setFixedLengthStreamingMode(config.toByteArray().size)
+        upload.outputStream.use { it.write(config.toByteArray()) }
+        check(upload.responseCode == 200) { "Fixture config registration failed: ${upload.responseCode}" }
+        upload.disconnect()
+        val url = "http://10.0.2.2:18081/sub/qa"
+        // Previous runs leave their profiles behind; the quick buttons test
+        // every profile, so stale ones delay this run's result past the waits.
+        MihomoProfileStore.profiles(ctx).forEach { MihomoProfileStore.remove(ctx, it.id) }
         val profile = MihomoProfileStore.createSubscription(ctx, "Quick action QA", url, 0)
         // Let the quick-update button do the download; an empty config must become usable.
         MikuRayProfiles.sync()
@@ -69,14 +83,14 @@ object QuickActionsSmoke {
         Thread.sleep(1200)
         click(com.miku.ray.R.id.btn_quick_country_code)
         waitFor("country result") { MmkvManager.decodeServerAffiliationInfo(profile.id)?.countryCode == "HK" }
-        report.putString("country", "HK from HTTPS through profile proxy")
+        report.putString("country", "HK from local fixture through profile proxy")
         Thread.sleep(1000)
         MihomoProfileStore.select(ctx, profile.id)
         VpnController.connect(ctx)
         waitFor("VPN connected") { VpnController.isRunning }
         fun ipText(): String { var result = ""; test.runOnMainSync { result = activity.findViewById<TextView>(com.miku.ray.R.id.tv_ip_state).text.toString() }; return result }
         waitFor("initial IP") { ipText().contains("103.30.78.42") }
-        MmkvManager.encodeSettings(AppConfig.PREF_IP_API_URL, ipUrl("JP", "45.143.235.225"))
+        MmkvManager.encodeSettings(AppConfig.PREF_IP_API_URL, ipUrl("JP"))
         test.runOnMainSync {
             val root = activity.findViewById<android.view.ViewGroup>(com.miku.ray.R.id.routing_mode)
             fun find(v: View): TextView? {
@@ -89,7 +103,7 @@ object QuickActionsSmoke {
         waitFor("mode switch IP") { ipText().contains("45.143.235.225") }
         report.putString("mode_ip", "HK to JP refreshed through mode button")
         Thread.sleep(1000)
-        MmkvManager.encodeSettings(AppConfig.PREF_IP_API_URL, ipUrl("HK", "103.30.78.42"))
+        MmkvManager.encodeSettings(AppConfig.PREF_IP_API_URL, ipUrl("HK"))
         test.runOnMainSync {
             val root = activity.findViewById<android.view.ViewGroup>(com.miku.ray.R.id.routing_mode)
             val column = root.getChildAt(0) as android.view.ViewGroup
@@ -97,9 +111,17 @@ object QuickActionsSmoke {
         }
         test.waitForIdleSync()
         waitFor("exit picker") { test.uiAutomation.rootInActiveWindow?.findAccessibilityNodeInfosByText("QA-JP")?.isNotEmpty() == true }
+        // Alert-list rows are not accessibility-clickable (the list controller
+        // owns the click), so tap the row's coordinates like a finger would.
         var node = test.uiAutomation.rootInActiveWindow.findAccessibilityNodeInfosByText("QA-JP").first()
-        while (!node.isClickable && node.parent != null) node = node.parent
-        check(node.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK))
+        val bounds = android.graphics.Rect()
+        node.getBoundsInScreen(bounds)
+        fun tapEvent(action: Int, downTime: Long) = android.view.MotionEvent.obtain(
+            downTime, System.currentTimeMillis(), action, bounds.exactCenterX(), bounds.exactCenterY(), 0)
+        val downTime = System.currentTimeMillis()
+        check(test.uiAutomation.injectInputEvent(tapEvent(android.view.MotionEvent.ACTION_DOWN, downTime), true))
+        Thread.sleep(80)
+        check(test.uiAutomation.injectInputEvent(tapEvent(android.view.MotionEvent.ACTION_UP, downTime), true))
         waitFor("node switch IP") { ipText().contains("103.30.78.42") }
         report.putString("node_ip", "JP to HK refreshed through global exit picker")
         check(VpnController.isRunning)

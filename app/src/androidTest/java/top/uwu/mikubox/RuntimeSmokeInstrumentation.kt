@@ -26,6 +26,9 @@ class RuntimeSmokeInstrumentation : Instrumentation() {
             MmkvManager.encodeSettings(AppConfig.PREF_VPN_BYPASS_LAN, "2")
             MmkvManager.encodeSettings(AppConfig.PREF_SHOW_SPLASH, true)
             MmkvManager.encodeSettings(AppConfig.PREF_BLUR_BOTTOM_STATUS, true)
+            // A previous smoke run may have selected global mode; rules only
+            // apply when the mode follows the profile, so always reset it.
+            MihomoCoreSettings.setMode(context, MihomoCoreSettings.ProxyMode.FOLLOW)
             val profile = MihomoProfileStore.create(context, "Runtime regression", """
                 mixed-port: 10808
                 mode: rule
@@ -72,6 +75,14 @@ class RuntimeSmokeInstrumentation : Instrumentation() {
                 }
             }
             val automatic = arguments.getString("on-demand") == "true"
+            // A previous smoke run (or failed run) may still own the tunnel;
+            // probing during its teardown would leak traffic past the new TUN.
+            if (VpnController.isRunning) {
+                runOnMainSync { VpnController.disconnect(context) }
+                val cleanDeadline = System.nanoTime() + 15_000_000_000L
+                while (top.uwu.mikubox.service.ConnectionStatus.phase.value != top.uwu.mikubox.service.ConnectionStatus.Phase.DISCONNECTED && System.nanoTime() < cleanDeadline) Thread.sleep(100)
+                check(top.uwu.mikubox.service.ConnectionStatus.phase.value == top.uwu.mikubox.service.ConnectionStatus.Phase.DISCONNECTED) { "Leftover VPN never stopped" }
+            }
             if (automatic) {
                 top.uwu.mikubox.core.OnDemandSettings.prefs(context).edit().clear().putBoolean("enabled", true).commit()
                 runOnMainSync { top.uwu.mikubox.service.OnDemandService.refresh(context) }
@@ -96,7 +107,7 @@ class RuntimeSmokeInstrumentation : Instrumentation() {
                             .putExtra("remote", arguments.getString("remote", "false") == "true"))
                     }
                     check(completed.await(75, java.util.concurrent.TimeUnit.SECONDS)) { "External UID probe timed out" }
-                    check(!output.containsKey("failure")) { output.getString("failure").orEmpty() }
+                    check(!output.containsKey("failure")) { "probe failed: ${output.getString("failure")} | legs: ${output.keySet().filter { it.startsWith("port_") || it.startsWith("direct_") }.joinToString { "$it=${output.getString(it)}" }}" }
                 } finally { context.unregisterReceiver(receiver) }
             }
             probeNetwork()

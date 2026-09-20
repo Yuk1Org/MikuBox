@@ -181,11 +181,6 @@ ShareConfigBottomSheet.OnShareOptionClickListener {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(binding.root)
-        com.miku.ray.ui.splash.StartupArtwork.install(this,
-            savedInstanceState == null && intent.getBooleanExtra(com.miku.ray.ui.splash.StartupArtwork.EXTRA_SHOW, false),
-            intent.getBooleanExtra(com.miku.ray.ui.splash.StartupArtwork.EXTRA_SYSTEM_HANDOFF, false))
-        intent.removeExtra(com.miku.ray.ui.splash.StartupArtwork.EXTRA_SHOW)
-        intent.removeExtra(com.miku.ray.ui.splash.StartupArtwork.EXTRA_SYSTEM_HANDOFF)
         showTestBuildInfoIfNeeded()
 
         hideLoading()
@@ -894,7 +889,7 @@ ShareConfigBottomSheet.OnShareOptionClickListener {
     }
 
     private fun setupListeners() {
-        binding.routingMode.onSelectionChanged = { mainViewModel.fetchCurrentIp() }
+        binding.routingMode.onSelectionChanged = { mainViewModel.fetchCurrentIp(delayMs = 1200L) }
         binding.fab.setOnClickListener { mainViewModel.onFabClicked() }
         binding.fab.shrink()
 
@@ -922,20 +917,32 @@ ShareConfigBottomSheet.OnShareOptionClickListener {
         }
 
         binding.btnQuickCountryCode.setOnClickListener {
-            mainViewModel.ensureServerCacheReady()
-            countryCodeProgressDialog.show(mainViewModel.serversCache.count())
+            val targetCount = mainViewModel.quickActionTargetGuids().count()
+            if (targetCount == 0) {
+                toastInfo(getString(R.string.empty_server_list_message))
+                return@setOnClickListener
+            }
+            countryCodeProgressDialog.show(targetCount)
             mainViewModel.testAllCountryCodes()
         }
 
         binding.btnQuickTcping.setOnClickListener {
-            mainViewModel.ensureServerCacheReady()
-            urlTestProgressDialog.show(mainViewModel.serversCache.count(), R.string.title_ping_all_server)
+            val targetCount = mainViewModel.quickActionTargetGuids().count()
+            if (targetCount == 0) {
+                toastInfo(getString(R.string.empty_server_list_message))
+                return@setOnClickListener
+            }
+            urlTestProgressDialog.show(targetCount, R.string.title_ping_all_server)
             mainViewModel.testAllRealPing(true)
         }
 
         binding.btnQuickRealPing.setOnClickListener {
-            mainViewModel.ensureServerCacheReady()
-            urlTestProgressDialog.show(mainViewModel.serversCache.count(), R.string.title_real_ping_all_server)
+            val targetCount = mainViewModel.quickActionTargetGuids().count()
+            if (targetCount == 0) {
+                toastInfo(getString(R.string.empty_server_list_message))
+                return@setOnClickListener
+            }
+            urlTestProgressDialog.show(targetCount, R.string.title_real_ping_all_server)
             mainViewModel.testAllRealPing()
         }
 
@@ -1001,18 +1008,30 @@ ShareConfigBottomSheet.OnShareOptionClickListener {
             R.id.export_all -> exportAll()
             R.id.export_group_file -> exportGroupAsFile()
             R.id.real_ping_all -> {
-                mainViewModel.ensureServerCacheReady()
-                urlTestProgressDialog.show(mainViewModel.serversCache.count(), R.string.title_real_ping_all_server)
+                val targetCount = mainViewModel.quickActionTargetGuids().count()
+                if (targetCount == 0) {
+                    toastInfo(getString(R.string.empty_server_list_message))
+                    return
+                }
+                urlTestProgressDialog.show(targetCount, R.string.title_real_ping_all_server)
                 mainViewModel.testAllRealPing()
             }
             R.id.country_code_all -> {
-                mainViewModel.ensureServerCacheReady()
-                countryCodeProgressDialog.show(mainViewModel.serversCache.count())
+                val targetCount = mainViewModel.quickActionTargetGuids().count()
+                if (targetCount == 0) {
+                    toastInfo(getString(R.string.empty_server_list_message))
+                    return
+                }
+                countryCodeProgressDialog.show(targetCount)
                 mainViewModel.testAllCountryCodes()
             }
             R.id.tcping_all -> {
-                mainViewModel.ensureServerCacheReady()
-                urlTestProgressDialog.show(mainViewModel.serversCache.count(), R.string.title_ping_all_server)
+                val targetCount = mainViewModel.quickActionTargetGuids().count()
+                if (targetCount == 0) {
+                    toastInfo(getString(R.string.empty_server_list_message))
+                    return
+                }
+                urlTestProgressDialog.show(targetCount, R.string.title_ping_all_server)
                 mainViewModel.testAllRealPing(true)
             }
             R.id.service_restart -> LauncherManager.restartServiceOrStart(this, ::startV2Ray)
@@ -1259,7 +1278,7 @@ ShareConfigBottomSheet.OnShareOptionClickListener {
                     mainViewModel.alertEvent.collect { (isSuccess, message) ->
                         if (isSuccess) {
                             snackbarSuccess(message, title = getString(R.string.title_alerter_success))
-                            mainViewModel.fetchCurrentIp()
+                            mainViewModel.fetchCurrentIp(delayMs = 800L)
                             if (mainViewModel.isRunning.value) {
                                 applyRunningState(isRunning = true)
                                 if (pendingConnectionTest) {

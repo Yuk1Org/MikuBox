@@ -67,6 +67,9 @@ object UpdateCheckerManager {
                 hasUpdate = true,
                 latestVersion = latestVersion,
                 releaseNotes = latestRelease.body,
+                releaseUrl = latestRelease.htmlUrl.ifBlank {
+                    AppConfig.APP_API_URL.concatUrl("latest")
+                },
                 downloadUrl = downloadUrl,
                 isPreRelease = latestRelease.prerelease
             )
@@ -75,16 +78,46 @@ object UpdateCheckerManager {
         }
     }
 
-    private fun compareVersions(version1: String, version2: String): Int {
-        val v1 = version1.split(".")
-        val v2 = version2.split(".")
+    // Version tags follow vX.XX.X-NAME-PATCH — the leading triple is the
+    // major version, NAME labels the release line, and the trailing number
+    // is the small patch version. The triple decides first; a different
+    // name on an equal triple is a newer line by definition (GitHub only
+    // reports its latest release here); the patch orders within one name.
+    // Anything malformed falls back to comparing the digit runs in order,
+    // which also handles this app's older "UwU-1.0.0" style.
+    private val versionPattern = Regex("v?([0-9]+(?:\\.[0-9]+)*)-([A-Za-z]+)-([0-9]+)")
+    private val digitRuns = Regex("\\d+")
 
-        for (i in 0 until maxOf(v1.size, v2.size)) {
-            val num1 = if (i < v1.size) v1[i].toInt() else 0
-            val num2 = if (i < v2.size) v2[i].toInt() else 0
-            if (num1 != num2) return num1 - num2
+    private fun compareVersions(version1: String, version2: String): Int {
+        val match1 = versionPattern.matchEntire(version1.trim())
+        val match2 = versionPattern.matchEntire(version2.trim())
+        if (match1 == null || match2 == null) {
+            val runs1 = digitRuns.findAll(version1).map { it.value.toLong() }.toList()
+            val runs2 = digitRuns.findAll(version2).map { it.value.toLong() }.toList()
+            for (i in 0 until maxOf(runs1.size, runs2.size)) {
+                val a = runs1.getOrElse(i) { 0L }
+                val b = runs2.getOrElse(i) { 0L }
+                if (a != b) return if (a < b) -1 else 1
+            }
+            return 0
         }
-        return 0
+
+        fun triple(version: String) = version.split(".").map { it.toLong() }
+        val triple1 = triple(match1.groupValues[1])
+        val triple2 = triple(match2.groupValues[1])
+        for (i in 0 until maxOf(triple1.size, triple2.size)) {
+            val a = triple1.getOrElse(i) { 0L }
+            val b = triple2.getOrElse(i) { 0L }
+            if (a != b) return if (a < b) -1 else 1
+        }
+
+        val name1 = match1.groupValues[2]
+        val name2 = match2.groupValues[2]
+        if (!name1.equals(name2, ignoreCase = true)) return 1
+
+        val patch1 = match1.groupValues[3].toLong()
+        val patch2 = match2.groupValues[3].toLong()
+        return patch1.compareTo(patch2)
     }
 
     private fun getDownloadUrl(release: GitHubRelease, abi: String): String {

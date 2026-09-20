@@ -83,10 +83,11 @@ class CheckUpdateActivity : BaseActivity() {
         .setTitle(getString(R.string.update_new_version_found, result.latestVersion))
         .setIcon(RemixR.drawable.rmx_device_restart_line)
         .setMessage(result.releaseNotes)
+        // Confirming hands off to the release page in the browser, where the
+        // matching APK is; installing straight from the app is not attempted.
         .setPositiveButton(R.string.update_now) { _, _ ->
-            result.downloadUrl?.let {
-                Utils.openUri(this, it)
-            }
+            result.releaseUrl?.let { Utils.openUri(this, it) }
+                ?: result.downloadUrl?.let { Utils.openUri(this, it) }
         }
         .setNegativeButton(android.R.string.cancel, null)
         .showBlur()

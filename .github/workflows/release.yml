@@ -48,11 +48,19 @@ jobs:
       - name: Build signed release APKs
         run: |
           chmod +x gradlew
-          # The published build reports the tag as its version (minus the v),
-          # and the CI run number keeps versionCode monotonically growing.
+          # The version code grows by exactly one per published release: read
+          # the previous release's version.json and increment. The run number
+          # is not used because cancelled or re-run workflows would skip codes.
+          PREV_CODE=$(curl -fsSL \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/latest" \
+            | jq -r '.assets[]? | select(.name=="version.json") | .browser_download_url' \
+            | head -1 | xargs -r curl -fsSL \
+            | jq -r '.versionCode // empty' 2>/dev/null || true)
+          # v0.1.0-miku-1, the last release published without version.json, was 1003.
+          [ -z "$PREV_CODE" ] && PREV_CODE=1003
           VERSION_NAME="${GITHUB_REF_NAME#v}"
-          VERSION_CODE=$((1000 + ${{ github.run_number }}))
-          echo "VERSION_NAME=$VERSION_NAME VERSION_CODE=$VERSION_CODE"
+          VERSION_CODE=$((PREV_CODE + 1))
+          echo "VERSION_NAME=$VERSION_NAME VERSION_CODE=$VERSION_CODE (prev: $PREV_CODE)"
           ./gradlew :app:assembleRelease --no-daemon --stacktrace \
             -PversionNameOverride="$VERSION_NAME" \
             -PversionCodeOverride="$VERSION_CODE"

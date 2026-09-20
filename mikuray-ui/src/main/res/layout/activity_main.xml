@@ -386,9 +386,9 @@
                 android:layout_toStartOf="@+id/fab"
                 android:orientation="vertical">
 
-                <com.miku.ray.marquee.text.AutoMarqueeTextView
+                <com.miku.ray.ui.main.RollingIpTextView
                     android:id="@+id/tv_ip_state"
-                    android:layout_width="wrap_content"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:ellipsize="marquee"
                     android:marqueeRepeatLimit="marquee_forever"

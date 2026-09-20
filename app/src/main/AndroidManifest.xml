@@ -44,10 +44,13 @@
             android:name="com.miku.ray.ui.splash.SplashActivity"
             android:exported="false" />
 
-        <!-- Ported MikuRay home screen, reached from the splash. -->
+        <!-- Ported MikuRay home screen, reached from the splash. The library
+             manifest exports it for its launcher aliases; this app launches it
+             only from its own splash, so the merged value must stay false. -->
         <activity
             android:name="com.miku.ray.ui.main.MainActivity"
-            android:exported="false" />
+            android:exported="false"
+            tools:replace="android:exported" />
 
         <!-- Ported MikuRay routing screens. -->
         <activity

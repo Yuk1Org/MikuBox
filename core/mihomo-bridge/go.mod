@@ -1,8 +1,7 @@
 module top.uwu.mikubox/mihomo-bridge
 
-// Keep the wrapper's module graph unpruned: Mihomo itself supplies the full
-// dependency graph and is pinned by the submodule.
-go 1.21
+// Mihomo is pinned by the submodule. The embedded JavaScript engine requires Go 1.25.
+go 1.25.0
 
 // HSSkyBoy/mihomo's own go.mod keeps this compatibility module path.
 require github.com/metacubex/mihomo v0.0.0
@@ -20,6 +19,8 @@ require (
 	github.com/coder/websocket v1.8.12 // indirect
 	github.com/coreos/go-iptables v0.8.0 // indirect
 	github.com/dlclark/regexp2 v1.12.0 // indirect
+	github.com/dlclark/regexp2/v2 v2.5.2 // indirect
+	github.com/dop251/goja v0.0.0-20260917113740-793a2a65c13b // indirect
 	github.com/dunglas/httpsfv v1.0.2 // indirect
 	github.com/enfein/mieru/v3 v3.34.0 // indirect
 	github.com/ericlagergren/aegis v0.0.0-20250325060835-cd0defd64358 // indirect
@@ -30,6 +31,7 @@ require (
 	github.com/fxamacker/cbor/v2 v2.9.0 // indirect
 	github.com/gaukas/godicttls v0.0.4 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
+	github.com/go-sourcemap/sourcemap v2.1.3+incompatible // indirect
 	github.com/gobwas/httphead v0.1.0 // indirect
 	github.com/gobwas/pool v0.2.1 // indirect
 	github.com/gobwas/ws v1.4.0 // indirect

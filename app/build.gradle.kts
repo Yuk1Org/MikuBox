@@ -38,6 +38,7 @@ android {
     ndkVersion = "29.0.13599879"
 
     defaultConfig {
+        testInstrumentationRunner = "top.uwu.mikubox.RuntimeSmokeInstrumentation"
         applicationId = "top.uwu.mikubox"
         minSdk = 24
         targetSdk = 36
@@ -98,6 +99,11 @@ android {
     }
 
     packaging {
+        // ART can map DEX directly instead of inflating every file on cold
+        // starts. Keep this explicit for Debug APKs as well as Release.
+        dex {
+            useLegacyPackaging = false
+        }
         resources {
             excludes += listOf(
                 "DebugProbesKt.bin",
@@ -148,10 +154,15 @@ val buildMihomoBridge by tasks.registering {
     group = "build"
     description = "Builds the bundled HSSkyBoy/mihomo Alpha JNI bridge for every Android ABI."
     inputs.dir(mihomoBridgeDir)
+    inputs.dir(rootProject.file("core/patches"))
     inputs.dir(mihomoSourceDir)
     outputs.dir(mihomoJniLibsDir)
 
     doLast {
+        val overlay = layout.buildDirectory.file("mihomo-overlay.json").get().asFile
+        overlay.parentFile.mkdirs()
+        fun jsonPath(file: File) = file.absolutePath.replace("\\", "\\\\").replace("\"", "\\\"")
+        overlay.writeText("""{"Replace":{"${jsonPath(mihomoSourceDir.resolve("listener/sing_tun/server_notwindows.go"))}":"${jsonPath(rootProject.file("core/patches/server_notwindows.go"))}","${jsonPath(mihomoSourceDir.resolve("dns/patch_android.go"))}":"${jsonPath(rootProject.file("core/patches/patch_android.go"))}"}}""")
         val ndkDir = android.ndkDirectory
         val hostOs = System.getProperty("os.name").lowercase()
         val (hostTag, exeExt) = when {
@@ -196,7 +207,7 @@ val buildMihomoBridge by tasks.registering {
                     // reports success - a VPN that is up with no traffic at all.
                     // The tag is Mihomo's own switch for apps that embed the core
                     // and own the VpnService themselves.
-                    "go", "build", "-trimpath", "-buildmode=c-shared",
+                    "go", "build", "-overlay=${overlay.absolutePath}", "-trimpath", "-buildmode=c-shared",
                     "-tags", "with_gvisor cmfa",
                     "-ldflags=-s -w", "-o", output.absolutePath, "."
                 )

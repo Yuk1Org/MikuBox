@@ -2,9 +2,9 @@ name: Build
 
 on:
   push:
-    branches: [ Miku ]
+    branches: [ main, Miku ]
   pull_request:
-    branches: [ Miku ]
+    branches: [ main, Miku ]
   workflow_dispatch:
 
 permissions:
@@ -37,11 +37,13 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.23"
+          go-version: "1.25"
           cache-dependency-path: core/mihomo-bridge/go.sum
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
 
       - name: Install NDK and CMake
         run: sdkmanager --install "ndk;29.0.13599879" "cmake;3.22.1"

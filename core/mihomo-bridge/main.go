@@ -9,6 +9,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/netip"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -41,7 +42,7 @@ var core = struct {
 
 // bridgeRevision identifies the compiled bridge in exported diagnostics; bump
 // it whenever the native side changes so a log proves which build produced it.
-const bridgeRevision = "2026-09-18.1"
+const bridgeRevision = "2026-09-20.3"
 
 // MihomoStart initializes the Alpha core in-process. The Android app owns the
 // VPN interface and passes its already-open descriptor to Mihomo's TUN inbound.
@@ -97,6 +98,9 @@ func shutdownCore() {
 	listener.PatchTunnel(nil, tunnel.Tunnel)
 	listener.PatchInboundListeners(nil, tunnel.Tunnel, true)
 	dns.ReCreateServer("", nil, nil)
+	// Cleanup closes the device but retains LastTunConf. Android may reuse the
+	// same fd on reconnect, causing ReCreateTun to skip opening the new device.
+	listener.ReCreateTun(listenerconfig.Tun{}, tunnel.Tunnel)
 	executor.Shutdown()
 	statistic.DefaultManager.Range(func(tracker statistic.Tracker) bool {
 		_ = tracker.Close()
@@ -396,6 +400,22 @@ func start(configText, homeDir string, tunFD int, dnsOverride, overridesJson str
 		raw = map[string]any{}
 	}
 
+	// Profile scripts run before UI overrides and Android-owned TUN fields.
+	// Abort on error rather than silently connecting with a different routing policy.
+	var scriptOptions map[string]any
+	if overridesJson != "" {
+		if err := json.Unmarshal([]byte(overridesJson), &scriptOptions); err != nil {
+			return nil, err
+		}
+		if source, ok := scriptOptions["miku-override-script"].(string); ok && strings.TrimSpace(source) != "" {
+			var err error
+			raw, err = evaluateScript(raw, source, 2*time.Second)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
 	// Group selection/pinning is only restored across restarts when the config
 	// opts in, so default it on unless the configuration says otherwise.
 	if profile, ok := raw["profile"].(map[string]any); ok && profile != nil {
@@ -449,12 +469,33 @@ func start(configText, homeDir string, tunFD int, dnsOverride, overridesJson str
 	// "dns" carry objects that are merged into those sections, which is how the
 	// app offers the same structured knobs the desktop clients do (stack, MTU,
 	// fake-ip range, resolvers, filters) without rewriting the profile.
+	var android4, android6 []netip.Prefix
+	appendSystemDNS := false
 	if overridesJson != "" {
 		overrides := map[string]any{}
 		if err := json.Unmarshal([]byte(overridesJson), &overrides); err == nil {
-			log.Debugln("[Overrides] applying %s", overridesJson)
+			log.Debugln("[Overrides] applying %d setting keys", len(overrides))
 			for key, value := range overrides {
 				switch key {
+				case "miku-override-script":
+					// Already evaluated above.
+				case "miku-append-system-dns":
+					appendSystemDNS, _ = value.(bool)
+				case "miku-tun-ipv4", "miku-tun-ipv6":
+					text, _ := value.(string)
+					prefix, err := netip.ParsePrefix(text)
+					if err != nil {
+						return nil, err
+					}
+					if key == "miku-tun-ipv4" {
+						android4 = []netip.Prefix{prefix}
+					} else {
+						android6 = []netip.Prefix{prefix}
+					}
+				case "miku-tls-verify":
+					if verify, ok := value.(bool); ok {
+						applyTLSVerification(raw, verify)
+					}
 				case "tun", "dns", "sniffer":
 					mergeSection(raw, key, value)
 				default:
@@ -480,11 +521,11 @@ func start(configText, homeDir string, tunFD int, dnsOverride, overridesJson str
 		tun["auto-route"] = false
 		tun["auto-detect-interface"] = false
 		tun["strict-route"] = false
-		// Every resolver query an app makes lands in this interface, so the
-		// hijack has to cover any port-53 destination: a profile-supplied
-		// narrower list would leave queries to the app's own tunnel DNS
-		// address unrouted and black-hole name resolution.
-		tun["dns-hijack"] = []string{"any:53"}
+		// Respect an explicit empty list (hijacking disabled). Only supply
+		// the safe Android default when neither profile nor UI selected a list.
+		if _, exists := tun["dns-hijack"]; !exists {
+			tun["dns-hijack"] = []string{"any:53"}
+		}
 		raw["tun"] = tun
 
 		// A catch-all TUN captures every resolver query, so the core has to own
@@ -522,7 +563,15 @@ func start(configText, homeDir string, tunFD int, dnsOverride, overridesJson str
 	if err != nil {
 		return nil, err
 	}
-	if err := hub.Parse(configBytes); err != nil {
+	if err := hub.Parse(configBytes, func(cfg *config.Config) {
+		if appendSystemDNS {
+			cfg.DNS.NameServer = append(cfg.DNS.NameServer, dns.NameServer{Net: "system"})
+		}
+		if tunFD >= 0 && len(android4) > 0 {
+			cfg.General.Tun.Inet4Address = android4
+			cfg.General.Tun.Inet6Address = android6
+		}
+	}); err != nil {
 		return nil, err
 	}
 	// hub.Parse reports success even when an inbound never came up: the TUN
@@ -551,7 +600,11 @@ func mergeSection(raw map[string]any, name string, value any) {
 		section = map[string]any{}
 	}
 	for key, entry := range incoming {
-		section[key] = entry
+		if _, nested := entry.(map[string]any); nested {
+			mergeSection(section, key, entry)
+		} else {
+			section[key] = entry
+		}
 	}
 	raw[name] = section
 }
@@ -585,7 +638,7 @@ func effectiveSummary(raw map[string]any) map[string]any {
 		summary["tun_endpoint_nat"] = tunCfg["endpoint-independent-nat"]
 		summary["tun_disable_icmp"] = tunCfg["disable-icmp-forwarding"]
 		if _, set := tunCfg["dns-hijack"]; set {
-			summary["tun_dns_hijack"] = true
+			summary["tun_dns_hijack"] = tunCfg["dns-hijack"]
 		}
 	}
 	if dnsCfg, ok := raw["dns"].(map[string]any); ok {
@@ -608,6 +661,8 @@ func effectiveSummary(raw map[string]any) map[string]any {
 			summary["dns_listen"] = listen
 		}
 	}
+	summary["unified_delay"] = raw["unified-delay"]
+	summary["tcp_concurrent"] = raw["tcp-concurrent"]
 	summary["mode"] = raw["mode"]
 	summary["mixed_port"] = raw["mixed-port"]
 	summary["ipv6"] = raw["ipv6"]
@@ -633,3 +688,27 @@ func effectiveSummary(raw map[string]any) map[string]any {
 }
 
 func main() {}
+
+// A global TLS policy must reach node options and provider overrides; mihomo
+// has no top-level skip-cert-verify option. Absent policy preserves the profile.
+func applyTLSVerification(raw map[string]any, verify bool) {
+	if proxies, ok := raw["proxies"].([]any); ok {
+		for _, entry := range proxies {
+			if proxy, ok := entry.(map[string]any); ok {
+				proxy["skip-cert-verify"] = !verify
+			}
+		}
+	}
+	if providers, ok := raw["proxy-providers"].(map[string]any); ok {
+		for _, entry := range providers {
+			if provider, ok := entry.(map[string]any); ok {
+				override, _ := provider["override"].(map[string]any)
+				if override == nil {
+					override = map[string]any{}
+				}
+				override["skip-cert-verify"] = !verify
+				provider["override"] = override
+			}
+		}
+	}
+}

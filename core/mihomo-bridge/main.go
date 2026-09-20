@@ -357,6 +357,20 @@ func MihomoProxyDelay(proxyName *C.char, testURL *C.char, timeoutMS C.int) *C.ch
 	return C.CString(string(payload))
 }
 
+//export MihomoProxyEndpoint
+func MihomoProxyEndpoint(proxyName *C.char) *C.char {
+	proxy := tunnel.Proxies()[C.GoString(proxyName)]
+	for i := 0; proxy != nil && i < 32; i++ {
+		next := proxy.Unwrap(&constant.Metadata{}, false)
+		if next == nil {
+			payload, _ := json.Marshal(map[string]any{"address": proxy.Addr(), "type": proxy.Type().String()})
+			return C.CString(string(payload))
+		}
+		proxy = next
+	}
+	return C.CString(`{}`)
+}
+
 // MihomoValidateDns checks that a DNS override block is well-formed YAML that
 // unmarshals to a mapping. Returns an empty string when valid (or blank), or a
 // human-readable error otherwise, so the editor can reject bad input up front.

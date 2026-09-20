@@ -99,8 +99,9 @@ object MihomoCore {
         tunFd: Int,
         dnsOverride: String = "",
         overridesJson: String = "",
+        homeName: String = "mihomo",
     ): Result<Unit> = runCatching {
-        val home = File(context.filesDir, "mihomo").apply { mkdirs() }
+        val home = File(context.filesDir, homeName).apply { mkdirs() }
         ensureGeodata(context, home)
         if (nativeStart(config, home.absolutePath, tunFd, dnsOverride, overridesJson) != 0) {
             val detail = nativeLastError().ifBlank { context.getString(R.string.mihomo_start_failed) }
@@ -227,6 +228,17 @@ object MihomoCore {
      */
     fun setMode(mode: String): Boolean = nativeSetMode(mode) == 0
 
+    fun proxyEndpoint(name: String): Pair<String, Int>? = runCatching {
+        val json = JSONObject(nativeProxyEndpoint(name))
+        if (json.optString("type").lowercase() in setOf("hysteria", "hysteria2", "tuic", "wireguard")) return null
+        val address = json.optString("address")
+        val separator = address.lastIndexOf(':')
+        if (separator <= 0) return null
+        val host = address.substring(0, separator).removeSurrounding("[", "]")
+        val port = address.substring(separator + 1).toIntOrNull()?.takeIf { it in 1..65535 } ?: return null
+        host to port
+    }.getOrNull()
+
     /** URL-tests a proxy, returning its delay in ms, or -1 on failure/timeout. */
     fun delay(name: String, url: String = "https://cp.cloudflare.com", timeoutMs: Int = 5000): Int =
         runCatching { JSONObject(nativeProxyDelay(name, url, timeoutMs)).optInt("delay", -1) }
@@ -312,6 +324,7 @@ object MihomoCore {
     private external fun nativeTraffic(): String
     private external fun nativeProxies(): String
     private external fun nativeSelectProxy(group: String, name: String): Int
+    private external fun nativeProxyEndpoint(name: String): String
     private external fun nativeProxyDelay(name: String, url: String, timeoutMs: Int): String
     private external fun nativeValidateDns(dnsYaml: String): String
     private external fun nativeGroupOrder(): String

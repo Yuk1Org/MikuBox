@@ -14,6 +14,7 @@ char* MihomoTraffic();
 char* MihomoProxies();
 int MihomoSelectProxy(char* group, char* name);
 char* MihomoProxyDelay(char* name, char* url, int timeout_ms);
+char* MihomoProxyEndpoint(char* name);
 char* MihomoValidateDns(char* dns_yaml);
 char* MihomoEvaluateScript(char* config, char* script);
 char* MihomoGroupOrder();
@@ -293,4 +294,15 @@ Java_top_uwu_mikubox_core_MihomoCore_nativeEvaluateScript(JNIEnv* env, jobject, 
     jstring out = env->NewStringUTF(result ? result : "{}");
     free(result);
     return out;
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_top_uwu_mikubox_core_MihomoCore_nativeProxyEndpoint(
+        JNIEnv* env, jobject, jstring name) {
+    UtfChars chars(env, name);
+    if (!chars.get()) return env->NewStringUTF("{}");
+    char* value = MihomoProxyEndpoint(const_cast<char*>(chars.get()));
+    jstring result = env->NewStringUTF(value ? value : "{}");
+    std::free(value);
+    return result;
 }

@@ -31,6 +31,257 @@ class RegressionTest {
         context = RuntimeEnvironment.getApplication()
     }
 
+    private fun withSubscriptionServer(test: (String, java.util.concurrent.atomic.AtomicInteger, java.util.concurrent.atomic.AtomicInteger) -> Unit) {
+        val requests = java.util.concurrent.atomic.AtomicInteger()
+        val status = java.util.concurrent.atomic.AtomicInteger(200)
+        val server = java.net.ServerSocket(0, 8, java.net.InetAddress.getByName("127.0.0.1"))
+        val worker = Thread {
+            while (!server.isClosed) {
+                val socket = try { server.accept() } catch (_: java.net.SocketException) { break }
+                socket.use {
+                    it.soTimeout = 5000
+                    val reader = it.getInputStream().bufferedReader()
+                    while (!reader.readLine().isNullOrEmpty()) { /* consume request headers */ }
+                    requests.incrementAndGet()
+                    val body = "mode: rule\nrules:\n  - MATCH,DIRECT\n".toByteArray()
+                    val header = "HTTP/1.1 ${status.get()} Response\r\nContent-Length: ${body.size}\r\nConnection: close\r\n\r\n"
+                    it.getOutputStream().apply { write(header.toByteArray()); write(body); flush() }
+                }
+            }
+        }.apply { isDaemon = true; start() }
+        try { test("http://127.0.0.1:${server.localPort}/sub", requests, status) }
+        finally { server.close(); worker.join(1000) }
+    }
+
+    @Test fun subscriptionEditorFetchesImmediatelyWithAutomaticUpdatesDisabled() = withSubscriptionServer { url, requests, status ->
+        MikuRayBridgeContext.attach(context)
+        com.miku.ray.MikuSubscriptions.install(MikuRaySubscriptions)
+        kotlinx.coroutines.runBlocking {
+            var id: String? = null
+            assertTrue(com.miku.ray.MikuSubscriptions.saveAndRefresh(null, "New", url, false, 1440, false) { id = it })
+            val saved = MihomoProfileStore.profiles(context).single { it.id == id }
+            assertTrue(saved.config.contains("MATCH,DIRECT"))
+            assertTrue(saved.updatedAtMillis > 0)
+            assertEquals(0L, saved.updateIntervalMinutes)
+            assertEquals(1, requests.get())
+            assertTrue(com.miku.ray.MikuSubscriptions.saveAndRefresh(id, "Renamed", url, false, 0, false))
+            assertEquals("Metadata-only save should not download again", 1, requests.get())
+            assertTrue(com.miku.ray.MikuSubscriptions.saveAndRefresh(id, "New source", "$url?changed", false, 0, false))
+            assertEquals(2, requests.get())
+            status.set(503)
+            assertFalse(com.miku.ray.MikuSubscriptions.saveAndRefresh(id, "Fail source", "$url?retry", false, 0, false))
+            assertEquals(0L, MihomoProfileStore.profiles(context).single { it.id == id }.updatedAtMillis)
+            status.set(200)
+            assertTrue(com.miku.ray.MikuSubscriptions.saveAndRefresh(id, "Fail source", "$url?retry", false, 0, false))
+            assertEquals(4, requests.get())
+        }
+    }
+
+    @Test fun failedInitialFetchCanRetrySameSubscriptionWithoutEnablingSchedule() = withSubscriptionServer { url, requests, status ->
+        MikuRayBridgeContext.attach(context)
+        com.miku.ray.MikuSubscriptions.install(MikuRaySubscriptions)
+        kotlinx.coroutines.runBlocking {
+            status.set(503)
+            var id: String? = null
+            assertFalse(com.miku.ray.MikuSubscriptions.saveAndRefresh(null, "Retry", url, false, 0, false) { id = it })
+            val before = MihomoProfileStore.profiles(context).size
+            assertTrue(MihomoProfileStore.profiles(context).single { it.id == id }.config.isEmpty())
+            status.set(200)
+            assertTrue(com.miku.ray.MikuSubscriptions.saveAndRefresh(id, "Retry", url, false, 0, false))
+            assertEquals(before, MihomoProfileStore.profiles(context).size)
+            assertEquals(0L, MihomoProfileStore.profiles(context).single { it.id == id }.updateIntervalMinutes)
+            assertEquals(2, requests.get())
+        }
+    }
+
+    @Test fun subscriptionImportLinksDownloadBeforeReportingSuccess() = withSubscriptionServer { url, requests, _ ->
+        MikuRayBridgeContext.attach(context)
+        val importer = top.uwu.mikubox.profile.MihomoProfileImporter
+        val direct = importer.importSubscription(context, "Direct", url, intervalMinutes = 0)
+        assertTrue(direct.config.contains("MATCH,DIRECT"))
+        assertEquals(0L, direct.updateIntervalMinutes)
+        for (scheme in listOf("clash://install-config", "sn://subscription")) {
+            val link = "$scheme?url=${android.net.Uri.encode(url)}&name=Imported"
+            assertEquals(0 to 1, top.uwu.mikubox.core.MikuRayProfiles.importContent(link))
+        }
+        assertEquals(0 to 1, top.uwu.mikubox.core.MikuRayProfiles.importContent(url))
+        assertEquals(4, requests.get())
+        assertTrue(MihomoProfileStore.profiles(context).filter { it.subscriptionUrl == url }.all { it.config.contains("MATCH,DIRECT") })
+    }
+
+    @Test fun scriptBindingsUseStableIdsAndExplicitDisableSurvivesDeletion() {
+        val library = top.uwu.mikubox.core.ScriptLibrary
+        val extras = top.uwu.mikubox.core.CoreOverrides
+        extras.setExtra(context, library.KEY, "")
+        extras.setExtra(context, "script.enabled", "true")
+        extras.setExtra(context, "script.source", "function main(c){c.mode='rule';return c}")
+        val script = library.save(context, null, "Work", "function main(c){c.mode='global';return c}")
+        library.bind(context, "profile-a", script.id)
+        assertEquals(script.source, library.source(context, "profile-a"))
+        assertTrue(library.source(context, "profile-b")!!.contains("rule"))
+        library.bind(context, "profile-b", library.NONE)
+        assertNull(library.source(context, "profile-b"))
+        extras.setExtra(context, "script.enabled", "false")
+        assertEquals(script.source, library.source(context, "profile-a"))
+        extras.setExtra(context, "script.enabled", "true")
+        val renamed = library.save(context, script.id, "Office", script.source)
+        assertEquals(script.id, renamed.id)
+        assertEquals(script.source, library.source(context, "profile-a"))
+        library.delete(context, script.id)
+        assertEquals(library.NONE, library.read(context).bindings["profile-a"])
+        assertNull(library.source(context, "profile-a"))
+        library.bind(context, "profile-a", null)
+        assertTrue(library.source(context, "profile-a")!!.contains("rule"))
+        extras.setExtra(context, library.KEY, "")
+    }
+
+    @Test fun scriptLibraryRejectsDuplicatesAndMalformedBackupBeforeAnyStoreChanges() {
+        val library = top.uwu.mikubox.core.ScriptLibrary
+        val extras = top.uwu.mikubox.core.CoreOverrides
+        extras.setExtra(context, library.KEY, "")
+        val script = library.save(context, null, "Original", "function main(c){return c}")
+        assertTrue(runCatching { library.save(context, null, "Original", script.source) }.isFailure)
+        assertTrue(runCatching { library.bind(context, "a", "missing") }.isFailure)
+        val backup = JSONObject(BackupManager.export(context))
+        backup.getJSONObject("stores").getJSONObject("miku_core_overrides")
+            .getJSONObject("extra.script.library").put("v", "{broken")
+        assertTrue(runCatching { BackupManager.import(context, backup.toString()) }.isFailure)
+        assertEquals(listOf(script), library.read(context).scripts)
+        extras.setExtra(context, library.KEY, "")
+    }
+
+    @Test fun boundScriptSurvivesProfileUpdateAndBackupAndExplicitProfileSnapshot() {
+        val library = top.uwu.mikubox.core.ScriptLibrary
+        val extras = top.uwu.mikubox.core.CoreOverrides
+        extras.setExtra(context, library.KEY, "")
+        val a = MihomoProfileStore.create(context, "A", "rules: [MATCH,DIRECT]")
+        val b = MihomoProfileStore.create(context, "B", "rules: [MATCH,DIRECT]")
+        val script = library.save(context, null, "For A", "function main(c){c.mode='global';return c}")
+        library.bind(context, a.id, script.id)
+        library.bind(context, b.id, library.NONE)
+        MihomoProfileStore.update(context, a.copy(name = "Updated A", config = "mode: rule"))
+        MihomoProfileStore.select(context, b.id)
+        assertEquals(script.source, JSONObject(MihomoCoreSettings.overridesJson(context, profileId = a.id)).getString("miku-override-script"))
+        assertFalse(JSONObject(MihomoCoreSettings.overridesJson(context)).has("miku-override-script"))
+        val backup = BackupManager.export(context)
+        library.delete(context, script.id)
+        BackupManager.import(context, backup)
+        assertEquals(script.source, library.source(context, a.id))
+        assertNull(library.source(context, b.id))
+        MihomoProfileStore.remove(context, a.id)
+        assertFalse(library.read(context).bindings.containsKey(a.id))
+        extras.setExtra(context, library.KEY, "")
+    }
+
+    @Test fun onDemandDecisionsHandlePermissionsAndExactSsidMatching() {
+        val settings = top.uwu.mikubox.core.OnDemandSettings
+        val wifi = top.uwu.mikubox.core.OnDemandSettings.Transport.WIFI
+        val cellular = top.uwu.mikubox.core.OnDemandSettings.Transport.CELLULAR
+        val allowed = setOf(wifi, cellular)
+        val excluded = settings.parseSsids("Home Wi-Fi\n公司网络\nHome Wi-Fi\n")
+        assertEquals(2, excluded.size)
+        assertEquals(top.uwu.mikubox.core.OnDemandSettings.Decision.DISCONNECT, settings.decide(null, allowed, excluded))
+        assertEquals(top.uwu.mikubox.core.OnDemandSettings.Decision.WAIT_FOR_SSID, settings.decide(top.uwu.mikubox.core.OnDemandSettings.NetworkState(wifi), allowed, excluded))
+        assertEquals(top.uwu.mikubox.core.OnDemandSettings.Decision.DISCONNECT, settings.decide(top.uwu.mikubox.core.OnDemandSettings.NetworkState(wifi, "Home Wi-Fi"), allowed, excluded))
+        assertEquals(top.uwu.mikubox.core.OnDemandSettings.Decision.CONNECT, settings.decide(top.uwu.mikubox.core.OnDemandSettings.NetworkState(wifi, "home wi-fi"), allowed, excluded))
+        assertEquals(top.uwu.mikubox.core.OnDemandSettings.Decision.CONNECT, settings.decide(top.uwu.mikubox.core.OnDemandSettings.NetworkState(cellular), allowed, excluded))
+        assertEquals(top.uwu.mikubox.core.OnDemandSettings.Decision.DISCONNECT, settings.decide(top.uwu.mikubox.core.OnDemandSettings.NetworkState(cellular), setOf(wifi), excluded))
+        assertTrue(runCatching { settings.parseSsids("中".repeat(11)) }.isFailure)
+    }
+
+    @Test fun automationSettingsRoundTripThroughBackupAndOnlyEnabledScriptIsSent() {
+        val settings = top.uwu.mikubox.core.OnDemandSettings
+        val overrides = top.uwu.mikubox.core.CoreOverrides
+        settings.prefs(context).edit().clear().putBoolean("enabled", true).putString("excluded", "Home").commit()
+        overrides.setExtra(context, "script.source", "function main(c) { return c; }")
+        overrides.setExtra(context, "script.enabled", "false")
+        assertFalse(JSONObject(MihomoCoreSettings.overridesJson(context)).has("miku-override-script"))
+        overrides.setExtra(context, "script.enabled", "true")
+        assertEquals("function main(c) { return c; }", JSONObject(MihomoCoreSettings.overridesJson(context)).getString("miku-override-script"))
+        val backup = BackupManager.export(context)
+        settings.prefs(context).edit().clear().commit()
+        overrides.setExtra(context, "script.source", "")
+        BackupManager.import(context, backup)
+        assertTrue(settings.enabled(context))
+        assertEquals(setOf("Home"), settings.excluded(context))
+        assertEquals("function main(c) { return c; }", overrides.extra(context, "script.source"))
+        settings.prefs(context).edit().clear().commit()
+        overrides.setExtra(context, "script.enabled", "false")
+    }
+
+    @Test fun connectionClockTracksSuccessfulSessionsAndIgnoresWallClockChanges() {
+        val status = top.uwu.mikubox.service.ConnectionStatus
+        status.update(context, top.uwu.mikubox.service.ConnectionStatus.Phase.DISCONNECTED)
+        status.update(context, top.uwu.mikubox.service.ConnectionStatus.Phase.CONNECTING)
+        org.robolectric.shadows.ShadowSystemClock.advanceBy(java.time.Duration.ofSeconds(5))
+        assertEquals(0L, status.elapsedMillis())
+        status.update(context, top.uwu.mikubox.service.ConnectionStatus.Phase.CONNECTED)
+        org.robolectric.shadows.ShadowSystemClock.advanceBy(java.time.Duration.ofSeconds(12))
+        assertEquals(12000L, status.elapsedMillis())
+        status.update(context, top.uwu.mikubox.service.ConnectionStatus.Phase.CONNECTED)
+        assertEquals(12000L, status.elapsedMillis())
+        status.update(context, top.uwu.mikubox.service.ConnectionStatus.Phase.DISCONNECTED)
+        assertEquals(0L, status.elapsedMillis())
+        status.update(context, top.uwu.mikubox.service.ConnectionStatus.Phase.CONNECTED)
+        assertEquals(0L, status.elapsedMillis())
+        status.update(context, top.uwu.mikubox.service.ConnectionStatus.Phase.DISCONNECTED)
+    }
+
+    @Test fun nativeControlsReachTheConfigAndDnsHijackCanBeDisabled() {
+        val extras = top.uwu.mikubox.core.CoreOverrides
+        context.getSharedPreferences("miku_core_overrides", 0).edit().clear().commit()
+        extras.setDnsHijack(context, "")
+        extras.setFindProcess(context, top.uwu.mikubox.core.CoreOverrides.FindProcess.ALWAYS)
+        extras.setGeodataLoader(context, top.uwu.mikubox.core.CoreOverrides.GeodataLoader.MEMORY)
+        extras.setTlsVerification(context, 1)
+        MihomoCoreSettings.setTcpConcurrent(context, true)
+        MihomoCoreSettings.setUnifiedDelay(context, true)
+        MihomoCoreSettings.setTunStack(context, MihomoCoreSettings.TunStack.MIXED)
+        val config = JSONObject(MihomoCoreSettings.overridesJson(context, 1400))
+        assertEquals(0, config.getJSONObject("tun").getJSONArray("dns-hijack").length())
+        assertEquals("mixed", config.getJSONObject("tun").getString("stack"))
+        assertTrue(config.getBoolean("tcp-concurrent"))
+        assertTrue(config.getBoolean("unified-delay"))
+        assertTrue(config.getBoolean("miku-tls-verify"))
+        assertEquals("always", config.getString("find-process-mode"))
+        assertEquals("memconservative", config.getString("geodata-loader"))
+        extras.setDnsHijack(context, "any:53\ntcp://any:53")
+        assertEquals(2, extras.tunJson(context).getJSONArray("dns-hijack").length())
+        extras.setTlsVerification(context, -1)
+        assertFalse(extras.coreJson(context).has("miku-tls-verify"))
+    }
+
+    @Test fun additionalDnsAndAndroidSettingsPreserveNativeValues() {
+        val extras = top.uwu.mikubox.core.CoreOverrides
+        extras.setExtra(context, "dns.fallback-filter.geoip-code", "CN")
+        extras.setExtra(context, "dns.fallback-filter.geosite", "gfw\ncategory-ads-all")
+        extras.setExtra(context, "dns.fallback-filter.domain", "+.example.com")
+        extras.setExtra(context, "dns.append-system", "true")
+        extras.setExtra(context, "vpn.allow-bypass", "false")
+        extras.setExtra(context, "vpn.ipv6-inbound", "true")
+        extras.setExtra(context, "vpn.proxy-exclusions", "*.example.com,localhost")
+        val config = JSONObject(MihomoCoreSettings.overridesJson(context, 1500, "10.10.14.1/30", "fdfe:dcba:9876::1/126"))
+        val filter = config.getJSONObject("dns").getJSONObject("fallback-filter")
+        assertEquals("CN", filter.getString("geoip-code"))
+        assertEquals(2, filter.getJSONArray("geosite").length())
+        assertEquals("+.example.com", filter.getJSONArray("domain").getString(0))
+        assertTrue(config.getBoolean("miku-append-system-dns"))
+        assertEquals("10.10.14.1/30", config.getString("miku-tun-ipv4"))
+        assertFalse(AndroidVpnSettings.allowBypass(context))
+        assertTrue(AndroidVpnSettings.ipv6Inbound(context))
+        assertEquals(listOf("*.example.com", "localhost"), AndroidVpnSettings.proxyExclusions(context))
+        extras.setExtra(context, "authentication", "test:password:with:colon")
+        assertEquals("test" to "password:with:colon", extras.proxyCredentials(context))
+    }
+
+    @Test fun customVpnRoutesRejectHostnamesAndNonNetworkAddresses() {
+        val routes = top.uwu.mikubox.core.VpnRoutes
+        assertEquals(listOf("10.0.0.0/8", "2000::/3"), routes.parse("10.0.0.0/8\n2000::/3"))
+        for (bad in listOf("example.com/8", "10.1.2.3/8", "0.0.0.0/99", "::/129")) {
+            assertTrue(bad, runCatching { routes.parse(bad) }.isFailure)
+        }
+    }
+
     @Test fun plainProxyLinksAreNotMistakenForBase64Subscriptions() {
         for (name in listOf("ModeSmoke", "AuditSOCKS", "Test")) {
             val config = MihomoSubscriptionDecoder.toMihomoConfig(context, "socks5://127.0.0.1:11080#$name")

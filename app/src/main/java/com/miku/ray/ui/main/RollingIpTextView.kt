@@ -7,7 +7,10 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Camera
 import android.graphics.Canvas
+import android.graphics.LinearGradient
 import android.graphics.Matrix
+import android.graphics.Paint
+import android.graphics.Shader
 import android.util.AttributeSet
 import androidx.interpolator.view.animation.FastOutSlowInInterpolator
 import com.miku.ray.marquee.text.AutoMarqueeTextView
@@ -22,6 +25,7 @@ class RollingIpTextView @JvmOverloads constructor(context: Context, attrs: Attri
     private var animator: ValueAnimator? = null
     private var progress = 1f
     private var target: String? = null
+    private val shadePaint = Paint()
 
     fun showValue(value: String, animate: Boolean) {
         if (value == target) return
@@ -52,14 +56,19 @@ class RollingIpTextView @JvmOverloads constructor(context: Context, attrs: Attri
         val radius = height / 2f
         val checkpoint = canvas.save()
         canvas.clipRect(0, 0, width, height)
-        face(canvas, -90f * progress, -radius * sin(radians).toFloat()) {
+
+        // Old face rotates away (top edge tipping backward into the screen).
+        face(canvas, -90f * progress, -radius * sin(radians).toFloat(), 1f - progress) {
             canvas.drawBitmap(old, 0f, 0f, null)
         }
-        face(canvas, 90f * (1f - progress), radius * cos(radians).toFloat()) { super.onDraw(canvas) }
+        // New face rotates in from below (bottom edge swinging up toward viewer).
+        face(canvas, 90f * (1f - progress), radius * cos(radians).toFloat(), progress) {
+            super.onDraw(canvas)
+        }
         canvas.restoreToCount(checkpoint)
     }
 
-    private inline fun face(canvas: Canvas, angle: Float, offset: Float, draw: () -> Unit) {
+    private inline fun face(canvas: Canvas, angle: Float, offset: Float, visibility: Float, draw: () -> Unit) {
         val checkpoint = canvas.save()
         camera.save()
         camera.rotateX(angle)
@@ -68,7 +77,22 @@ class RollingIpTextView @JvmOverloads constructor(context: Context, attrs: Attri
         transform.preTranslate(-width / 2f, -height / 2f)
         transform.postTranslate(width / 2f, height / 2f + offset)
         canvas.concat(transform)
-        draw()
+
+        // Shade the face as it turns away from the viewer, so the rotation
+        // reads as a 3D prism edge rather than a flat slide.
+        val shade = ((1f - visibility) * 110f).toInt().coerceIn(0, 110)
+        if (shade > 0) {
+            shadePaint.shader = LinearGradient(
+                0f, 0f, 0f, height.toFloat(),
+                0x70000000 or (shade shl 16) or (shade shl 8) or shade,
+                0x00000000,
+                Shader.TileMode.CLAMP
+            )
+            draw()
+            canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), shadePaint)
+        } else {
+            draw()
+        }
         canvas.restoreToCount(checkpoint)
     }
 

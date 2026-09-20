@@ -36,9 +36,13 @@
         <!--
             The entry point is MikuRay's own: its launcher aliases (declared with
             the screens in :mikuray-ui) target its welcome screen, which shows the
-            onboarding pages once and then its splash. This app used to launch a
-            splash of its own; that screen is gone.
+            onboarding pages once and then its splash.
         -->
+
+        <!-- Ported MikuRay splash, shown between welcome and home. -->
+        <activity
+            android:name="com.miku.ray.ui.splash.SplashActivity"
+            android:exported="false" />
 
         <!-- Ported MikuRay home screen, reached from the splash. -->
         <activity

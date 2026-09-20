@@ -230,6 +230,7 @@ object CoreServiceManager {
      */
     private fun measureConnection(service: Service, requestId: String) {
         if (!isRunning()) return
+        val startingIpSequence = ipSequence.get()
         backgroundScope.launch {
             val testUrl = SettingsManager.getDelayTestUrl()
             val delay = runCatching { MikuCoreBridge.currentNodeDelay(testUrl) }.getOrDefault(-1L)
@@ -239,7 +240,7 @@ object CoreServiceManager {
                 service.getString(R.string.connection_test_error, "")
             }
             MessageUtil.sendMsg2UI(service, AppConfig.MSG_MEASURE_DELAY_SUCCESS, result, requestId)
-            if (isRunning()) measureIp(service, requestId)
+            if (isRunning() && startingIpSequence == ipSequence.get()) measureIp(service, requestId)
         }
     }
 

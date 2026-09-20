@@ -37,6 +37,7 @@ class RoutingModeView @JvmOverloads constructor(context: Context, attrs: Attribu
     private val labels = mutableListOf<TextView>()
     private val exit = TextView(context)
     private var state = MikuRouting.State("rule", null, emptyList())
+    var onSelectionChanged: (() -> Unit)? = null
     var selectionVersion = 0L
         private set
     private var shownMode: String? = null
@@ -118,6 +119,7 @@ class RoutingModeView @JvmOverloads constructor(context: Context, attrs: Attribu
         }
         if (MikuRouting.impl?.mode(mode) != true) { failure(); return }
         selectionVersion++
+        onSelectionChanged?.invoke()
         render(state.copy(mode = mode))
     }
 
@@ -233,6 +235,7 @@ class RoutingModeView @JvmOverloads constructor(context: Context, attrs: Attribu
             .setSingleChoiceItems(adapter, current.options.indexOfFirst { it.name == current.exit }) { dialog, which ->
                 if (MikuRouting.impl?.exit(current.options[which].name) == true) {
                     selectionVersion++
+                    onSelectionChanged?.invoke()
                     MikuRouting.impl?.state()?.let(::render)
                     dialog.dismiss()
                 } else failure()

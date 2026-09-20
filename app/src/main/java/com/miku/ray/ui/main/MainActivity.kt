@@ -550,7 +550,7 @@ ShareConfigBottomSheet.OnShareOptionClickListener {
     private fun refreshIpStateText() {
         val showRealtimeTraffic = MmkvManager.decodeSettingsBool(AppConfig.PREF_SHOW_REALTIME_TRAFFIC_IP, false)
 
-        binding.tvIpState.text = if (showRealtimeTraffic) {
+        val value = if (showRealtimeTraffic) {
             if (mainViewModel.isRunning.value && lastTrafficSpeedText.isNotEmpty()) {
                 lastTrafficSpeedText
             } else {
@@ -559,7 +559,9 @@ ShareConfigBottomSheet.OnShareOptionClickListener {
         } else {
             lastIpStateText.ifEmpty { getString(R.string.ip_unknown) }
         }
+        binding.tvIpState.showValue(value, !showRealtimeTraffic && mainViewModel.isRunning.value)
     }
+
 
     private fun refreshAllGroupListDisplays() {
         for (i in groupPagerAdapter.groups.indices) {
@@ -892,6 +894,7 @@ ShareConfigBottomSheet.OnShareOptionClickListener {
     }
 
     private fun setupListeners() {
+        binding.routingMode.onSelectionChanged = { mainViewModel.fetchCurrentIp() }
         binding.fab.setOnClickListener { mainViewModel.onFabClicked() }
         binding.fab.shrink()
 
@@ -994,11 +997,6 @@ ShareConfigBottomSheet.OnShareOptionClickListener {
     }
 
     override fun onMoreOptionClicked(viewId: Int) {
-        if (com.miku.ray.MikuProfiles.impl != null &&
-            viewId in setOf(R.id.real_ping_all, R.id.country_code_all)) {
-            toastInfo(getString(R.string.mihomo_batch_test_unavailable))
-            return
-        }
         when (viewId) {
             R.id.export_all -> exportAll()
             R.id.export_group_file -> exportGroupAsFile()

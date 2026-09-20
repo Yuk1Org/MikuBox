@@ -122,7 +122,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             if (refreshList) notifyListChanged(-1)
             return
         }
-        _ipResultText.value = ""
+        if (!running && !isRestarting) {
+            _ipResultText.value = ""
+            activeIpRequestId = null
+        }
         _isRunning.value = running
         if (!running) markConnectionStopped()
         if (refreshList) notifyListChanged(-1)
@@ -316,6 +319,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun updateConfigViaSubAll(): SubscriptionUpdateResult {
+        if (com.miku.ray.MikuProfiles.impl != null) return mainRepository.updateConfigViaSubAll()
         if (subscriptionId.isEmpty()) {
             return mainRepository.updateConfigViaSubAll()
         } else {
@@ -447,8 +451,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         testCurrentServerRealPing()
     }
 
+    private var activeIpRequestId: String? = null
     fun fetchCurrentIp() {
-        mainRepository.sendMsg2Service(AppConfig.MSG_MEASURE_IP, "")
+        if (!isRunning.value) return
+        val requestId = UUID.randomUUID().toString()
+        activeIpRequestId = requestId
+        mainRepository.requestIp(requestId)
     }
 
     fun subscriptionIdChanged(id: String) {
@@ -763,9 +771,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
 
             is MainServiceEvent.MeasureIpResult -> {
-                if (event.requestId.isEmpty()
-                    || event.requestId == activeCurrentTestId
-                    || event.requestId == lastCurrentTestId
+                if (if (activeIpRequestId != null) event.requestId == activeIpRequestId else
+                    event.requestId.isEmpty() || event.requestId == activeCurrentTestId || event.requestId == lastCurrentTestId
                 ) {
                     if (isRunning.value && !event.ip.isNullOrBlank()) _ipResultText.value = event.ip
                 }

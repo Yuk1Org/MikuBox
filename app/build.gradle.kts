@@ -45,8 +45,8 @@ android {
         // Release workflows override both with the pushed tag (and the CI run
         // number, which only ever grows) so a tagged build reports and sorts
         // as the version it publishes; local builds keep the checked-in values.
-        versionCode = 10
-        versionName = "UwU-1.0.0"
+        versionCode = (findProperty("versionCodeOverride") as String?)?.toIntOrNull() ?: 10
+        versionName = (findProperty("versionNameOverride") as String?) ?: "UwU-1.0.0"
 
         // The ported banner card (uwu_banner_theme / uwu_maintainer) reads these
         // the same way MikuRay's does — MikuRay declares them as resValues in its

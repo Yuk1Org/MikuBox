@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.Intent
 import android.os.UserManager
 import com.miku.ray.AppConfig
-import com.miku.ray.core.LauncherManager
 import com.miku.ray.handler.MmkvManager
 import com.miku.ray.handler.SubscriptionUpdater
 import com.miku.ray.util.LogUtil
@@ -44,8 +43,9 @@ class BootReceiver : BroadcastReceiver() {
             return
         }
 
-        LogUtil.i(AppConfig.TAG, "BootReceiver: Starting V2Ray service")
-        LauncherManager.startService(context)
+        if (!com.miku.ray.MikuCoreBridge.startOnBoot()) {
+            LogUtil.i(AppConfig.TAG, "BootReceiver: Waiting for VPN permission or a selected profile")
+        }
         SubscriptionUpdater.sync(context)
     }
 }

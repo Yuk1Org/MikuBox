@@ -41,13 +41,16 @@ class MikuProxyService : Service() {
                 if (generation.get() != request) return@execute
                 try {
                     MihomoCoreSettings.prepareMixedPort(this)
-                    val config = MihomoConfigStore.activeConfig(this)
-                    val result = CoreServiceRuntime.start(this) { MihomoCore.start(
+                    val profile = top.uwu.mikubox.profile.MihomoProfileStore.selected(this)
+                    val config = profile?.config ?: MihomoConfigStore.activeConfig(this)
+                    val result = CoreServiceRuntime.start(this) {
+                        top.uwu.mikubox.core.AndroidNetworkBridge.start(this)
+                        MihomoCore.start(
                         this,
                         config,
                         MihomoCore.NO_TUN,
                         MihomoDnsSettings.effectiveOverride(this, config),
-                        MihomoCoreSettings.overridesJson(this),
+                        MihomoCoreSettings.overridesJson(this, profileId = profile?.id),
                     ) }
                     if (result.isFailure) {
                         Log.e(TAG, "proxy start failed: ${result.exceptionOrNull()?.message.orEmpty()}")
@@ -86,7 +89,7 @@ class MikuProxyService : Service() {
         // Unconditional and off the main thread: a stop racing the start task has
         // to reach the core even though [running] is not set yet, and the native
         // side stops idempotently.
-        runCatching { startExecutor.execute { runCatching { CoreServiceRuntime.stop(this) } } }
+        runCatching { startExecutor.execute { runCatching { CoreServiceRuntime.stop(this) }; top.uwu.mikubox.core.AndroidNetworkBridge.stop(this) } }
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }

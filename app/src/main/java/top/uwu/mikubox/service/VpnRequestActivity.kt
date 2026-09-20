@@ -18,18 +18,29 @@ class VpnRequestActivity : AppCompatActivity() {
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
-            MikuVpnService.start(this)
+            startRequestedMode()
+        } else {
+            ConnectionStatus.update(this, ConnectionStatus.Phase.DISCONNECTED)
+            com.miku.ray.util.MessageUtil.sendMsg2UI(this, com.miku.ray.AppConfig.MSG_STATE_START_FAILURE, "")
         }
         finish()
     }
 
+    private fun startRequestedMode() {
+        if (intent.getBooleanExtra("on_demand", false)) {
+            top.uwu.mikubox.core.OnDemandSettings.setEnabled(this, true)
+            OnDemandService.refresh(this)
+        } else MikuVpnService.start(this)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (savedInstanceState != null) return
         val prepare = VpnService.prepare(this)
         if (prepare != null) {
             consent.launch(prepare)
         } else {
-            MikuVpnService.start(this)
+            startRequestedMode()
             finish()
         }
     }

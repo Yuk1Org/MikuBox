@@ -23,6 +23,8 @@ object VpnController {
      * through [VpnRequestActivity] to show the system consent dialog first.
      */
     fun connect(context: Context) {
+        if (isRunning) return
+        ConnectionStatus.update(context, ConnectionStatus.Phase.CONNECTING)
         if (VpnService.prepare(context) != null) {
             context.startActivity(
                 Intent(context, VpnRequestActivity::class.java)

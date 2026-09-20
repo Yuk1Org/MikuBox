@@ -41,8 +41,9 @@ import top.uwu.mikubox.profile.MihomoTrafficStore
 class MikuVpnService : VpnService(), ServiceControl {
 
     /**
-     * The tunnel descriptor, owned by the core once [MihomoCore.start] accepted
-     * it. [MihomoCore.NO_TUN] while nothing is connected.
+     * The original tunnel identifier, retained only as a connected-state marker.
+     * It is closed after startup; the native listener owns a duplicate.
+     * [MihomoCore.NO_TUN] while nothing is connected.
      */
     @Volatile
     private var tunFd: Int = MihomoCore.NO_TUN
@@ -184,6 +185,7 @@ class MikuVpnService : VpnService(), ServiceControl {
         }
         startRequested = false
         starting = true
+        ConnectionStatus.update(this, ConnectionStatus.Phase.CONNECTING)
         val request = generation.incrementAndGet()
         MikuProxyService.stop(this)
         lastTunError = null
@@ -194,7 +196,7 @@ class MikuVpnService : VpnService(), ServiceControl {
             // Tracked so a failure between establish() and the core taking over
             // can still close the detached descriptor instead of leaking it.
             var fd: Int = MihomoCore.NO_TUN
-            var coreAccepted = false
+            var descriptorClosed = false
             try {
                 MihomoCoreSettings.prepareMixedPort(this)
                 fd = establishTun() ?: run {
@@ -208,15 +210,23 @@ class MikuVpnService : VpnService(), ServiceControl {
                 // The routing rules the core is about to be given come from this
                 // configuration, so the screen's list is refreshed against it —
                 // including the rules the user switched off there.
-                val startResult = CoreServiceRuntime.start(this, { MihomoTrafficStore.finish(this) }) { MihomoCore.start(
+                val startResult = CoreServiceRuntime.start(this, { MihomoTrafficStore.finish(this) }) {
+                    top.uwu.mikubox.core.AndroidNetworkBridge.start(this)
+                    MihomoCore.start(
                     this,
                     config,
                     fd,
                     MihomoDnsSettings.effectiveOverride(this, config),
-                    MihomoCoreSettings.overridesJson(this, AndroidVpnSettings.mtu(this)),
+                    MihomoCoreSettings.overridesJson(
+                        this, AndroidVpnSettings.mtu(this),
+                        "${AndroidVpnSettings.interfaceAddress(this).ipv4Client}/$PRIVATE_VLAN4_PREFIX",
+                        if (AndroidVpnSettings.ipv6Inbound(this)) "${AndroidVpnSettings.interfaceAddress(this).ipv6Client}/$PRIVATE_VLAN6_PREFIX" else null,
+                        profileId = profile?.id,
+                    ),
                 ) }
+                closeDetachedTun(fd)
+                descriptorClosed = true
                 if (startResult.isFailure) {
-                    closeDetachedTun(fd)
                     val failure = startResult.exceptionOrNull()
                     // The message alone is not enough to place a Kotlin failure;
                     // keep the trace in logcat for the diagnostics export.
@@ -225,7 +235,6 @@ class MikuVpnService : VpnService(), ServiceControl {
                     checkpointHandler.post { if (generation.get() == request) stopVpn() }
                     return@execute
                 }
-                coreAccepted = true
                 // Native startup cannot be interrupted. Its result may already be obsolete.
                 if (generation.get() != request) {
                     CoreServiceRuntime.stop(this)
@@ -238,6 +247,7 @@ class MikuVpnService : VpnService(), ServiceControl {
                     starting = false
                     tunFd = fd
                     running = true
+                    ConnectionStatus.update(this@MikuVpnService, ConnectionStatus.Phase.CONNECTED)
                     startedAtMillis = System.currentTimeMillis()
                     // What the tunnel was actually built from: the settings that
                     // reach it come from the ported screens, so the line is what
@@ -260,7 +270,7 @@ class MikuVpnService : VpnService(), ServiceControl {
                     acquireWakeLock()
                 }
             } catch (error: Throwable) {
-                if (!coreAccepted && fd != MihomoCore.NO_TUN) closeDetachedTun(fd)
+                if (!descriptorClosed && fd != MihomoCore.NO_TUN) closeDetachedTun(fd)
                 reportStartFailure(error.message.orEmpty())
                 checkpointHandler.post { if (generation.get() == request) stopVpn() }
             }
@@ -359,7 +369,8 @@ class MikuVpnService : VpnService(), ServiceControl {
         // Read before the flags are cleared: a stop that had no tunnel to stop
         // must not tell the UI that a connection ended.
         val hadTunnel = tunFd != MihomoCore.NO_TUN
-        generation.incrementAndGet()
+        val stopGeneration = generation.incrementAndGet()
+        val stoppingRevision = ConnectionStatus.update(this, ConnectionStatus.Phase.DISCONNECTING)
         starting = false
         running = false
         startedAtMillis = 0L
@@ -378,6 +389,10 @@ class MikuVpnService : VpnService(), ServiceControl {
         runCatching {
             startExecutor.execute {
                 runCatching { CoreServiceRuntime.stop(this) }
+                if (generation.get() == stopGeneration) top.uwu.mikubox.core.AndroidNetworkBridge.stop(this)
+                checkpointHandler.post {
+                    if (generation.get() == stopGeneration && ConnectionStatus.revision == stoppingRevision) ConnectionStatus.update(this, ConnectionStatus.Phase.DISCONNECTED)
+                }
             }
         }
     }
@@ -389,14 +404,10 @@ class MikuVpnService : VpnService(), ServiceControl {
     }
 
     /**
-     * Establishes the tunnel and hands its descriptor to the core.
-     *
-     * [ParcelFileDescriptor.detachFd] is what makes the handover safe: the core
-     * wraps the descriptor in a Go file object and closes it when the tunnel
-     * stops, and Go closes it with a raw syscall. Keeping Java as an owner as
-     * well meant both sides closed the same descriptor; the second close landed
-     * on an fd number the GPU driver had already been given, and bionic aborted
-     * the process with an fdsan error right when the user disconnected.
+     * Establishes the tunnel and lends its detached descriptor during startup.
+     * The native listener duplicates it before adoption; Java closes the original
+     * after startup regardless of the result. Thus failure cleanup and stop can
+     * never close a descriptor still owned by the other runtime.
      */
     private fun establishTun(): Int? {
         // Every value here comes from the screen that owns it, so the switch and
@@ -407,7 +418,7 @@ class MikuVpnService : VpnService(), ServiceControl {
             .setSession(getString(R.string.app_name))
             .setMtu(AndroidVpnSettings.mtu(this))
             .addAddress(address.ipv4Client, PRIVATE_VLAN4_PREFIX)
-            .allowBypass()
+        if (AndroidVpnSettings.allowBypass(this)) builder.allowBypass()
         // Without a resolver of its own Android answers from the underlying
         // network (or refuses to answer at all, depending on the vendor), so the
         // tunnel advertises an address inside itself and the core hijacks port 53.
@@ -415,31 +426,20 @@ class MikuVpnService : VpnService(), ServiceControl {
         // tunnel either way, so the hijack still answers them.
         AndroidVpnSettings.tunDnsServers(this).takeIf { it.isNotEmpty() }
             ?.forEach { builder.addDnsServer(it) }
-            ?: builder.addDnsServer(address.ipv4Router)
-        if (AndroidVpnSettings.bypassLan(this)) {
-            // Leave the LAN alone: the routes cover public space, and private
-            // ranges go out over the underlying network.
-            AndroidVpnSettings.publicRoutes().forEach { route ->
-                val parts = route.split('/')
-                if (parts.size == 2) {
-                    runCatching { builder.addRoute(parts[0], parts[1].toInt()) }
-                }
-            }
-        } else {
-            builder.addRoute("0.0.0.0", 0)
+            ?: builder.addDnsServer(if (CoreOverrides.dnsHijack(this).isBlank()) "1.1.1.1" else address.ipv4Router)
+        top.uwu.mikubox.core.VpnRoutes.selected(this,
+            MihomoProfileStore.selected(this)?.config.orEmpty(), AndroidVpnSettings.ipv6Inbound(this)).forEach { route ->
+            builder.addRoute(route.substringBefore('/'), route.substringAfter('/').toInt())
         }
-        if (MihomoCoreSettings.ipv6(this)) {
+        if (AndroidVpnSettings.ipv6Inbound(this)) {
             builder.addAddress(address.ipv6Client, PRIVATE_VLAN6_PREFIX)
-            builder.addRoute("::", 0)
             val v6Dns = AndroidVpnSettings.tunDnsServers(this).filter { it.contains(':') }
-            if (v6Dns.isEmpty()) builder.addDnsServer(address.ipv6Router) else v6Dns.forEach { builder.addDnsServer(it) }
+            if (v6Dns.isEmpty()) builder.addDnsServer(if (CoreOverrides.dnsHijack(this).isBlank()) "2606:4700:4700::1111" else address.ipv6Router) else v6Dns.forEach { builder.addDnsServer(it) }
         }
-        // The core shares this application's UID. Excluding it prevents
-        // Mihomo's own sockets from being fed back into the VPN TUN. In
-        // allow-list mode it is implicitly excluded by not being allowed.
-        if (appMode != AndroidVpnSettings.PerAppMode.ONLY_SELECTED) {
-            builder.addDisallowedApplication(packageName)
-        }
+        // Mixed/system TCP uses an Android kernel listener whose replies must
+        // return through the TUN. Excluding our UID also excludes those replies
+        // and silently blackholes TCP. Protect only actual outbound sockets via
+        // AndroidNetworkBridge; keep the internal forwarder inside the VPN.
         when (appMode) {
             AndroidVpnSettings.PerAppMode.ALL -> Unit
 
@@ -448,14 +448,14 @@ class MikuVpnService : VpnService(), ServiceControl {
                 if (packages.isEmpty()) {
                     // A list that selects nothing would tunnel everything, so fall
                     // back to excluding only this app and letting the rest through.
-                    builder.addDisallowedApplication(packageName)
+                    // No allow-list means all applications use the VPN.
                 } else {
-                    packages.forEach { runCatching { builder.addAllowedApplication(it) } }
+                    (packages + packageName).forEach { runCatching { builder.addAllowedApplication(it) } }
                 }
             }
 
             AndroidVpnSettings.PerAppMode.BYPASS_SELECTED -> {
-                AndroidVpnSettings.perAppPackages(this).forEach { runCatching { builder.addDisallowedApplication(it) } }
+                AndroidVpnSettings.perAppPackages(this).filter { it != packageName }.forEach { runCatching { builder.addDisallowedApplication(it) } }
             }
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && AndroidVpnSettings.appendHttpProxy(this)) {
@@ -464,6 +464,7 @@ class MikuVpnService : VpnService(), ServiceControl {
                     android.net.ProxyInfo.buildDirectProxy(
                         HTTP_PROXY_HOST,
                         com.miku.ray.handler.SettingsManager.getHttpPort(),
+                        AndroidVpnSettings.proxyExclusions(this),
                     ),
                 )
             }
@@ -478,7 +479,7 @@ class MikuVpnService : VpnService(), ServiceControl {
     }
 
     /**
-     * Closes a descriptor the core never took over. [ParcelFileDescriptor.adoptFd]
+     * Closes the original descriptor borrowed during native startup. [ParcelFileDescriptor.adoptFd]
      * re-attaches ownership so the close is clean: a detached fd has no owner as
      * far as fdsan is concerned.
      */
@@ -606,6 +607,8 @@ class MikuVpnService : VpnService(), ServiceControl {
             private set
 
         fun start(context: Context) {
+            if (running) return
+            ConnectionStatus.update(context, ConnectionStatus.Phase.CONNECTING)
             androidx.core.content.ContextCompat.startForegroundService(
                 context,
                 Intent(context, MikuVpnService::class.java),
@@ -613,6 +616,7 @@ class MikuVpnService : VpnService(), ServiceControl {
         }
 
         fun stop(context: Context) {
+            ConnectionStatus.update(context, ConnectionStatus.Phase.DISCONNECTING)
             context.startService(
                 Intent(context, MikuVpnService::class.java).setAction(ACTION_STOP)
             )

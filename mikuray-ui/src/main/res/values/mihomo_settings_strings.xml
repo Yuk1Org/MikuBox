@@ -1,0 +1,36 @@
+<resources>
+<string name="mihomo_setting_allow_lan">allow-lan</string>
+<string name="mihomo_setting_ipv6">ipv6</string>
+<string name="mihomo_setting_unified_delay">unified-delay</string>
+<string name="mihomo_setting_tcp_concurrent">tcp-concurrent</string>
+<string name="mihomo_setting_mixed_port">mixed-port</string>
+<string name="mihomo_setting_log_level">log-level</string>
+<string name="mihomo_setting_tun_stack">tun.stack</string>
+<string name="mihomo_setting_find_process_mode">find-process-mode</string>
+<string name="mihomo_setting_geodata_loader">geodata-loader</string>
+<string name="mihomo_setting_sniffer_enable">sniffer.enable</string>
+<string name="mihomo_setting_sniffer_override_destination">sniffer.override-destination</string>
+<string name="mihomo_setting_geodata_mode">geodata-mode</string>
+<string name="mihomo_setting_disable_keep_alive">disable-keep-alive</string>
+<string name="mihomo_setting_keep_alive_interval">keep-alive-interval</string>
+<string name="mihomo_setting_dns_enhanced_mode">dns.enhanced-mode</string>
+<string name="mihomo_setting_dns_cache_algorithm">dns.cache-algorithm</string>
+<string name="mihomo_setting_dns_nameserver">dns.nameserver</string>
+<string name="mihomo_setting_dns_default_nameserver">dns.default-nameserver</string>
+<string name="mihomo_setting_dns_proxy_server_nameserver">dns.proxy-server-nameserver</string>
+<string name="mihomo_setting_dns_direct_nameserver">dns.direct-nameserver</string>
+<string name="mihomo_setting_dns_fallback">dns.fallback</string>
+<string name="mihomo_setting_dns_fake_ip_range">dns.fake-ip-range</string>
+<string name="mihomo_setting_dns_fake_ip_filter">dns.fake-ip-filter</string>
+<string name="mihomo_setting_dns_respect_rules">dns.respect-rules</string>
+<string name="mihomo_setting_dns_ipv6">dns.ipv6</string>
+<string name="mihomo_setting_dns_use_hosts">dns.use-hosts</string>
+<string name="mihomo_setting_dns_use_system_hosts">dns.use-system-hosts</string>
+<string name="mihomo_setting_dns_prefer_h3">dns.prefer-h3</string>
+<string name="mihomo_setting_dns_direct_nameserver_follow_policy">dns.direct-nameserver-follow-policy</string>
+<string name="mihomo_settings_hint">Reconnect to apply; follow profile preserves its values</string>
+<string name="mihomo_follow_profile">Follow profile</string>
+<string name="mihomo_invalid_value">Value outside the allowed range</string>
+<string name="mihomo_settings_title">mihomo settings</string>
+<string name="mihomo_setting_keep_alive_idle">keep-alive-idle</string>
+</resources>

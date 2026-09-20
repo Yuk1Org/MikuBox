@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="mihomo_batch_test_unavailable">Batch tests are not available for full configurations. Connect first, then use the connection test.</string>
+</resources>

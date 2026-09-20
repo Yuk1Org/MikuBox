@@ -1,0 +1,38 @@
+# Gradle / build
+.gradle/
+build/
+**/build/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Local config
+local.properties
+release.keystore
+
+# IDE / tooling
+.idea/
+*.iml
+.kotlin/
+.claude/
+build.bat
+.video_agent/
+.zcode/
+.mimosa/
+
+# macOS
+.DS_Store
+
+# Go bridge: stray `go build` output next to the sources. The build task
+# writes the real artefact into the app's jniLibs directory instead.
+core/mihomo-bridge/mihomo-bridge
+
+# Local build artifacts handed over for testing
+/*.apk
+
+# Screenshots and notes captured while comparing screens against the reference
+.verify/
+
+# Scratch: the port's own working notes, and tool probes. Not part of the app.
+.port-backup/
+.hookprobe/

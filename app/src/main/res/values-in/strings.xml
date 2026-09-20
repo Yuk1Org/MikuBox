@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Teks milik aplikasi ini; sisanya, termasuk terjemahan, ada di :mikuray-ui. -->
+<resources>
+    <string name="app_name">MikuBox</string>
+
+    <!-- Layar perkenalan: tampilannya milik MikuRay, produknya bukan. -->
+    <string name="uwu_welcome_summary_1">MikuBox,</string>
+    <string name="uwu_welcome_summary_2">Klien Mihomo (Clash) untuk Android dengan gaya UI Miku.</string>
+    <string name="uwu_welcome_page1_desc">Klien Mihomo (Clash.Meta) gratis dan open source untuk Android.</string>
+    <string name="uwu_welcome_page2_desc">Menjalankan langganan Clash, kumpulan aturan, dan grup proksi.</string>
+
+    <string name="vpn_channel_name">Status VPN</string>
+    <string name="vpn_notification_running">Terhubung</string>
+    <string name="vpn_action_stop">Berhenti</string>
+    <string name="vpn_tile_title">VPN MikuBox</string>
+    <string name="local_proxy_notification_running">Proksi Mihomo lokal sedang berjalan</string>
+    <string name="subscription_channel_name">Pembaruan langganan</string>
+    <string name="subscription_update_title">Memperbarui langganan</string>
+
+    <string name="mihomo_start_failed">Mihomo gagal dimulai</string>
+    <string name="error_mihomo_config_blank">Konfigurasi Mihomo tidak boleh kosong</string>
+    <string name="error_import_file_empty">File kosong atau tidak dapat dibaca</string>
+    <string name="error_no_compatible_proxy_links">Tidak ditemukan tautan proksi yang kompatibel dengan Mihomo</string>
+    <string name="error_subscription_empty">Langganan kosong</string>
+    <string name="error_subscription_http">HTTP langganan %1$d</string>
+    <string name="error_subscription_url_blank">URL langganan tidak boleh kosong</string>
+    <string name="error_unknown_profile">Profil tidak dikenal %1$s</string>
+    <string name="profile_default_name">Profil</string>
+    <string name="profile_imported_default_name">Profil yang diimpor</string>
+    <string name="profile_subscription_default_name">Langganan</string>
+
+    <string name="apps_search">Cari aplikasi</string>
+    <string name="apps_select_all">Pilih semua</string>
+    <string name="apps_invert_selection">Balik pilihan</string>
+
+    <string name="proxies_test">Uji latensi</string>
+    <string name="proxies_sort_delay">Urutkan berdasarkan latensi</string>
+
+    <string name="theme_hue">Hue</string>
+    <string name="theme_saturation">Saturasi</string>
+    <string name="theme_lightness">Kecerahan</string>
+
+    <string name="action_select">Pilih</string>
+    <string name="action_delete">Hapus</string>
+    <string name="action_share">Bagikan</string>
+    <string name="action_update">Perbarui</string>
+</resources>

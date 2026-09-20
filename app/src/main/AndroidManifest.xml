@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission
+        android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission" />
+
+    <application
+        android:name=".MikuApp"
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher"
+        android:supportsRtl="true"
+        android:theme="@style/AppTheme_Teal"
+        android:localeConfig="@xml/locales_config">
+
+        <meta-data
+            android:name="autoStoreLocales"
+            android:value="true" />
+
+        <!--
+            The entry point is MikuRay's own: its launcher aliases (declared with
+            the screens in :mikuray-ui) target its welcome screen, which shows the
+            onboarding pages once and then its splash. This app used to launch a
+            splash of its own; that screen is gone.
+        -->
+
+        <!-- Ported MikuRay home screen, reached from the splash. -->
+        <activity
+            android:name="com.miku.ray.ui.main.MainActivity"
+            android:exported="false" />
+
+        <!-- Ported MikuRay routing screens. -->
+        <activity
+            android:name="com.miku.ray.ui.routing.RoutingSettingActivity"
+            android:exported="false"
+            android:parentActivityName="com.miku.ray.ui.main.MainActivity" />
+
+        <activity
+            android:name="com.miku.ray.ui.routing.RoutingEditActivity"
+            android:exported="false"
+            android:parentActivityName="com.miku.ray.ui.routing.RoutingSettingActivity" />
+
+        <!-- Ported MikuRay subscription screens. -->
+        <activity
+            android:name="com.miku.ray.ui.subscription.SubSettingActivity"
+            android:exported="false"
+            android:parentActivityName="com.miku.ray.ui.main.MainActivity" />
+
+        <activity
+            android:name="com.miku.ray.ui.subscription.SubEditActivity"
+            android:exported="false"
+            android:parentActivityName="com.miku.ray.ui.subscription.SubSettingActivity" />
+
+        <activity
+            android:name="com.miku.ray.ui.about.AboutActivity"
+            android:exported="false"
+            android:parentActivityName="com.miku.ray.ui.main.MainActivity" />
+
+        <activity
+            android:name="com.miku.ray.ui.about.LibraryActivity"
+            android:exported="false"
+            android:parentActivityName="com.miku.ray.ui.about.AboutActivity" />
+
+        <activity
+            android:name="com.miku.ray.ui.logcat.LogcatActivity"
+            android:exported="false"
+            android:parentActivityName="com.miku.ray.ui.main.MainActivity" />
+
+        <!-- Ported MikuRay settings: hub plus its five pages. They all run on
+             MikuRay's AppThemeBase so the vendored preference theming applies. -->
+        <activity
+            android:name="com.miku.ray.ui.preference.activity.SettingsActivity"
+            android:exported="false"
+            android:parentActivityName="com.miku.ray.ui.main.MainActivity" />
+
+        <activity
+            android:name="com.miku.ray.ui.preference.activity.UiSettingsActivity"
+            android:exported="false"
+            android:parentActivityName="com.miku.ray.ui.preference.activity.SettingsActivity" />
+
+        <activity
+            android:name="com.miku.ray.ui.preference.activity.VpnSettingsActivity"
+            android:exported="false"
+            android:parentActivityName="com.miku.ray.ui.preference.activity.SettingsActivity" />
+
+        <activity
+            android:name="com.miku.ray.ui.preference.activity.CoreSettingsActivity"
+            android:exported="false"
+            android:parentActivityName="com.miku.ray.ui.preference.activity.SettingsActivity" />
+
+        <activity
+            android:name="com.miku.ray.ui.preference.activity.AdvancedSettingsActivity"
+            android:exported="false"
+            android:parentActivityName="com.miku.ray.ui.preference.activity.SettingsActivity" />
+
+
+        <activity
+            android:name="com.miku.ray.ui.backup.BackupActivity"
+            android:exported="false"
+            android:parentActivityName="com.miku.ray.ui.main.MainActivity" />
+
+        <activity
+            android:name="com.miku.ray.ui.perappproxy.PerAppProxyActivity"
+            android:exported="false"
+            android:parentActivityName="com.miku.ray.ui.main.MainActivity" />
+
+        <activity
+            android:name=".service.VpnRequestActivity"
+            android:exported="false"
+            android:theme="@style/AppThemeDayNight.NoActionBar.Translucent" />
+
+        <activity
+            android:name=".service.MihomoImportActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:theme="@style/AppThemeDayNight.NoActionBar.Translucent">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="clash" />
+                <data android:scheme="sn" />
+                <data android:scheme="ss" />
+                <data android:scheme="ssr" />
+                <data android:scheme="socks" />
+                <data android:scheme="socks5" />
+                <data android:scheme="vmess" />
+                <data android:scheme="vless" />
+                <data android:scheme="trojan" />
+                <data android:scheme="hysteria" />
+                <data android:scheme="hy2" />
+                <data android:scheme="tuic" />
+                <data android:scheme="ssh" />
+            </intent-filter>
+        </activity>
+
+        <service
+            android:name=".service.MikuVpnService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse"
+            android:permission="android.permission.BIND_VPN_SERVICE">
+            <intent-filter>
+                <action android:name="android.net.VpnService" />
+            </intent-filter>
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="vpn" />
+        </service>
+
+        <service
+            android:name=".service.MikuProxyService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="local proxy" />
+        </service>
+
+        <service android:name=".service.OnDemandService" android:exported="false" android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="User-enabled VPN on-demand network monitoring" />
+        </service>
+
+        <service
+            android:name=".service.MikuTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_stat_name"
+            android:label="@string/vpn_tile_title"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <!--
+            No boot receiver here: MikuRay's own is declared with the screens in
+            :mikuray-ui, and it is the one the "Connect after device boot" switch
+            drives. This app used to carry a second one with its own preference
+            and no switch anywhere.
+        -->
+
+        <!--
+            The vendored application class initialises WorkManager itself (that is
+            how MikuRay configures its background process), so the automatic
+            initializer has to be removed — otherwise startup throws "WorkManager
+            is already initialized". This mirrors MikuRay's own manifest.
+        -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
+        </provider>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider;${applicationId}.cache"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+    </application>
+
+</manifest>

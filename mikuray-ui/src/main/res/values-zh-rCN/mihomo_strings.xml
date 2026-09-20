@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="mihomo_batch_test_unavailable">整份配置暂不支持批量测试。请连接后使用连接测试。</string>
+</resources>

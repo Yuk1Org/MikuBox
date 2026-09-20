@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Строки этого приложения; остальные, включая переводы, лежат в :mikuray-ui. -->
+<resources>
+    <string name="app_name">MikuBox</string>
+
+    <!-- Экран знакомства: оформление из MikuRay, продукт — нет. -->
+    <string name="uwu_welcome_summary_1">MikuBox,</string>
+    <string name="uwu_welcome_summary_2">Клиент Mihomo (Clash) для Android в стиле Miku.</string>
+    <string name="uwu_welcome_page1_desc">Бесплатный клиент Mihomo (Clash.Meta) с открытым исходным кодом для Android.</string>
+    <string name="uwu_welcome_page2_desc">Поддерживает подписки Clash, наборы правил и группы прокси.</string>
+
+    <string name="vpn_channel_name">Статус VPN</string>
+    <string name="vpn_notification_running">Подключено</string>
+    <string name="vpn_action_stop">Остановить</string>
+    <string name="vpn_tile_title">MikuBox VPN</string>
+    <string name="local_proxy_notification_running">Локальный прокси Mihomo запущен</string>
+    <string name="subscription_channel_name">Обновления подписок</string>
+    <string name="subscription_update_title">Обновление подписок</string>
+
+    <string name="mihomo_start_failed">Не удалось запустить Mihomo</string>
+    <string name="error_mihomo_config_blank">Конфигурация Mihomo не может быть пустой</string>
+    <string name="error_import_file_empty">Файл пуст или не читается</string>
+    <string name="error_no_compatible_proxy_links">Совместимые с Mihomo ссылки на прокси не найдены</string>
+    <string name="error_subscription_empty">Подписка пуста</string>
+    <string name="error_subscription_http">HTTP подписки %1$d</string>
+    <string name="error_subscription_url_blank">URL-адрес подписки не может быть пустым</string>
+    <string name="error_unknown_profile">Неизвестный профиль %1$s</string>
+    <string name="profile_default_name">Профиль</string>
+    <string name="profile_imported_default_name">Импортированный профиль</string>
+    <string name="profile_subscription_default_name">Подписка</string>
+
+    <string name="apps_search">Поиск приложений</string>
+    <string name="apps_select_all">Выбрать все</string>
+    <string name="apps_invert_selection">Инвертировать выбор</string>
+
+    <string name="proxies_test">Проверить задержку</string>
+    <string name="proxies_sort_delay">Сортировать по задержке</string>
+
+    <string name="theme_hue">Оттенок</string>
+    <string name="theme_saturation">Насыщенность</string>
+    <string name="theme_lightness">Яркость</string>
+
+    <string name="action_select">Выбрать</string>
+    <string name="action_delete">Удалить</string>
+    <string name="action_share">Поделиться</string>
+    <string name="action_update">Обновить</string>
+</resources>

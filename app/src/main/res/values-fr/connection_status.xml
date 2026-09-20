@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="tile_select_profile">Sélectionnez un profil</string>
+    <string name="tile_disconnected">Déconnecté</string>
+    <string name="tile_connecting">Connexion…</string>
+    <string name="tile_connected">Connecté</string>
+    <string name="tile_disconnecting">Déconnexion…</string>
+</resources>

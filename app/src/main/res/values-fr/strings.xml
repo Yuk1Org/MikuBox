@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Les chaînes propres à cette application ; les autres, traductions comprises, sont dans :mikuray-ui. -->
+<resources>
+    <string name="app_name">MikuBox</string>
+
+    <!-- L'écran d'accueil : l'habillage vient de MikuRay, le produit non. -->
+    <string name="uwu_welcome_summary_1">MikuBox,</string>
+    <string name="uwu_welcome_summary_2">Client Mihomo (Clash) pour Android, habillé façon Miku.</string>
+    <string name="uwu_welcome_page1_desc">Client Mihomo (Clash.Meta) libre et open source pour Android.</string>
+    <string name="uwu_welcome_page2_desc">Gère les abonnements, jeux de règles et groupes de proxy Clash.</string>
+
+    <string name="vpn_channel_name">État du VPN</string>
+    <string name="vpn_notification_running">Connecté</string>
+    <string name="vpn_action_stop">Arrêter</string>
+    <string name="vpn_tile_title">MikuBox VPN</string>
+    <string name="local_proxy_notification_running">Le proxy Mihomo local est en cours d’exécution</string>
+    <string name="subscription_channel_name">Mises à jour des abonnements</string>
+    <string name="subscription_update_title">Mise à jour des abonnements</string>
+
+    <string name="mihomo_start_failed">Échec du démarrage de Mihomo</string>
+    <string name="error_mihomo_config_blank">La configuration Mihomo ne doit pas être vide</string>
+    <string name="error_import_file_empty">Le fichier est vide ou illisible</string>
+    <string name="error_no_compatible_proxy_links">Aucun lien proxy compatible avec Mihomo trouvé</string>
+    <string name="error_subscription_empty">L’abonnement est vide</string>
+    <string name="error_subscription_http">HTTP de l’abonnement %1$d</string>
+    <string name="error_subscription_url_blank">L’URL de l’abonnement ne doit pas être vide</string>
+    <string name="error_unknown_profile">Profil inconnu %1$s</string>
+    <string name="profile_default_name">Profil</string>
+    <string name="profile_imported_default_name">Profil importé</string>
+    <string name="profile_subscription_default_name">Abonnement</string>
+
+    <string name="apps_search">Rechercher des applications</string>
+    <string name="apps_select_all">Tout sélectionner</string>
+    <string name="apps_invert_selection">Inverser la sélection</string>
+
+    <string name="proxies_test">Tester la latence</string>
+    <string name="proxies_sort_delay">Trier par latence</string>
+
+    <string name="theme_hue">Teinte</string>
+    <string name="theme_saturation">Saturation</string>
+    <string name="theme_lightness">Luminosité</string>
+
+    <string name="action_select">Sélectionner</string>
+    <string name="action_delete">Supprimer</string>
+    <string name="action_share">Partager</string>
+    <string name="action_update">Mettre à jour</string>
+</resources>

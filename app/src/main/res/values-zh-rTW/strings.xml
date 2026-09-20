@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 本應用程式自己的文案；其餘文案（含各語言翻譯）都在 :mikuray-ui 裡。 -->
+<resources>
+    <string name="app_name">MikuBox</string>
+
+    <!-- 引導頁文案：介面來自 MikuRay，產品不是。 -->
+    <string name="uwu_welcome_summary_1">MikuBox，</string>
+    <string name="uwu_welcome_summary_2">基於 mihomo 核心、以初音風格裝扮的 Android 用戶端。</string>
+    <string name="uwu_welcome_page1_desc">自由開源的 Mihomo（Clash.Meta）Android 用戶端。</string>
+    <string name="uwu_welcome_page2_desc">支援 Clash 訂閱、規則集與策略群組。</string>
+
+    <!-- VPN 通知、通知管道與快速設定磚。 -->
+    <string name="vpn_channel_name">VPN 狀態</string>
+    <string name="vpn_notification_running">已連線</string>
+    <string name="vpn_action_stop">停止</string>
+    <string name="vpn_tile_title">MikuBox VPN</string>
+    <string name="local_proxy_notification_running">本機 Mihomo 代理正在執行</string>
+    <string name="subscription_channel_name">訂閱更新</string>
+    <string name="subscription_update_title">正在更新訂閱</string>
+
+    <!-- 本應用程式自己的匯入、訂閱與設定檔程式碼發出的提示。 -->
+    <string name="mihomo_start_failed">Mihomo 啟動失敗</string>
+    <string name="error_mihomo_config_blank">Mihomo 設定不可空白</string>
+    <string name="error_import_file_empty">檔案為空或無法讀取</string>
+    <string name="error_no_compatible_proxy_links">找不到相容於 Mihomo 的代理連結</string>
+    <string name="error_subscription_empty">訂閱內容為空</string>
+    <string name="error_subscription_http">訂閱 HTTP 狀態碼 %1$d</string>
+    <string name="error_subscription_url_blank">訂閱網址不可空白</string>
+    <string name="error_unknown_profile">未知的設定檔 %1$s</string>
+    <string name="profile_default_name">設定檔</string>
+    <string name="profile_imported_default_name">已匯入的設定檔</string>
+    <string name="profile_subscription_default_name">訂閱</string>
+
+    <!-- MikuRay 介面裡沒有的分應用程式選擇器。 -->
+    <string name="apps_search">搜尋應用程式</string>
+    <string name="apps_select_all">全選</string>
+    <string name="apps_invert_selection">反選</string>
+
+    <!-- 節點頁自己的操作。 -->
+    <string name="proxies_test">測試延遲</string>
+    <string name="proxies_sort_delay">依延遲排序</string>
+
+    <!-- 自訂配色選擇器的軸標籤。 -->
+    <string name="theme_hue">色相</string>
+    <string name="theme_saturation">飽和度</string>
+    <string name="theme_lightness">亮度</string>
+
+    <!-- 列操作，供本應用程式彈出的短選單使用。 -->
+    <string name="action_select">選用</string>
+    <string name="action_delete">刪除</string>
+    <string name="action_share">分享</string>
+    <string name="action_update">更新</string>
+</resources>

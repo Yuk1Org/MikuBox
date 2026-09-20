@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Strings this app owns.
+
+    Everything else comes from :mikuray-ui — the ported screens' copy, including
+    translations — so a key that both modules define used to be a silent override
+    of MikuRay's wording. What is left here is what only MikuBox can say: its own
+    name, the mihomo wording of its onboarding, its VPN notification and channel,
+    the import/subscription messages its own code raises, and the per-app picker.
+-->
+<resources>
+    <string name="app_name">MikuBox</string>
+
+    <!-- The onboarding copy: the screens are MikuRay's, the product is not. -->
+    <string name="uwu_welcome_summary_1">MikuBox,</string>
+    <string name="uwu_welcome_summary_2">Mihomo (Clash) client for Android with a Miku UI style.</string>
+    <string name="uwu_welcome_page1_desc">Free and open source Mihomo (Clash.Meta) client for Android.</string>
+    <string name="uwu_welcome_page2_desc">Runs Clash subscriptions, rule sets and proxy groups.</string>
+
+    <!-- The VPN notification, channel and quick-settings tile. -->
+    <string name="vpn_channel_name">VPN status</string>
+    <string name="vpn_notification_running">Connected</string>
+    <string name="vpn_action_stop">Stop</string>
+    <string name="vpn_tile_title">MikuBox VPN</string>
+    <string name="local_proxy_notification_running">Local Mihomo proxy is running</string>
+    <string name="subscription_channel_name">Subscription updates</string>
+    <string name="subscription_update_title">Updating subscriptions</string>
+
+    <!-- Raised by this app's own import, subscription and profile code. -->
+    <string name="mihomo_start_failed">Mihomo failed to start</string>
+    <string name="error_mihomo_config_blank">Mihomo configuration must not be blank</string>
+    <string name="error_import_file_empty">File is empty or unreadable</string>
+    <string name="error_no_compatible_proxy_links">No Mihomo-compatible proxy links found</string>
+    <string name="error_subscription_empty">Subscription is empty</string>
+    <string name="error_subscription_http">Subscription HTTP %1$d</string>
+    <string name="error_subscription_url_blank">Subscription URL must not be blank</string>
+    <string name="error_unknown_profile">Unknown profile %1$s</string>
+    <string name="profile_default_name">Profile</string>
+    <string name="profile_imported_default_name">Imported profile</string>
+    <string name="profile_subscription_default_name">Subscription</string>
+
+    <!-- The per-app picker MikuRay's screen does not have. -->
+    <string name="apps_search">Search apps</string>
+    <string name="apps_select_all">Select all</string>
+    <string name="apps_invert_selection">Invert selection</string>
+
+    <!-- The proxies screen's own actions. -->
+    <string name="proxies_test">Test latency</string>
+    <string name="proxies_sort_delay">Sort by latency</string>
+
+    <!-- The custom-colour picker's axis labels. -->
+    <string name="theme_hue">Hue</string>
+    <string name="theme_saturation">Saturation</string>
+    <string name="theme_lightness">Lightness</string>
+
+    <!-- Row actions, shared by the short menus this app raises. -->
+    <string name="action_select">Select</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_share">Share</string>
+    <string name="action_update">Update</string>
+</resources>

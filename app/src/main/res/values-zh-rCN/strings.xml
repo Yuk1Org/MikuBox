@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 本应用自己的文案；其余文案（含各语言翻译）都在 :mikuray-ui 里。 -->
+<resources>
+    <string name="app_name">MikuBox</string>
+
+    <!-- 引导页文案：界面来自 MikuRay，产品不是。 -->
+    <string name="uwu_welcome_summary_1">MikuBox，</string>
+    <string name="uwu_welcome_summary_2">基于 mihomo 内核、以初音风格装扮的 Android 客户端。</string>
+    <string name="uwu_welcome_page1_desc">自由开源的 Mihomo（Clash.Meta）Android 客户端。</string>
+    <string name="uwu_welcome_page2_desc">支持 Clash 订阅、规则集与策略组。</string>
+
+    <!-- VPN 通知、通知渠道与快捷开关磁贴。 -->
+    <string name="vpn_channel_name">VPN 状态</string>
+    <string name="vpn_notification_running">已连接</string>
+    <string name="vpn_action_stop">停止</string>
+    <string name="vpn_tile_title">MikuBox VPN</string>
+    <string name="local_proxy_notification_running">本地 Mihomo 代理正在运行</string>
+    <string name="subscription_channel_name">订阅更新</string>
+    <string name="subscription_update_title">正在更新订阅</string>
+
+    <!-- 本应用自己的导入、订阅与配置代码抛出的提示。 -->
+    <string name="mihomo_start_failed">Mihomo 启动失败</string>
+    <string name="error_mihomo_config_blank">Mihomo 配置不能为空</string>
+    <string name="error_import_file_empty">文件为空或无法读取</string>
+    <string name="error_no_compatible_proxy_links">未找到兼容 Mihomo 的代理链接</string>
+    <string name="error_subscription_empty">订阅为空</string>
+    <string name="error_subscription_http">订阅 HTTP 状态码 %1$d</string>
+    <string name="error_subscription_url_blank">订阅地址不能为空</string>
+    <string name="error_unknown_profile">未知配置文件 %1$s</string>
+    <string name="profile_default_name">配置文件</string>
+    <string name="profile_imported_default_name">导入的配置文件</string>
+    <string name="profile_subscription_default_name">订阅</string>
+
+    <!-- MikuRay 界面里没有的分应用选择器。 -->
+    <string name="apps_search">搜索应用</string>
+    <string name="apps_select_all">全选</string>
+    <string name="apps_invert_selection">反选</string>
+
+    <!-- 节点页自己的操作。 -->
+    <string name="proxies_test">测试延迟</string>
+    <string name="proxies_sort_delay">按延迟排序</string>
+
+    <!-- 自定义配色选择器的轴标签。 -->
+    <string name="theme_hue">色相</string>
+    <string name="theme_saturation">饱和度</string>
+    <string name="theme_lightness">亮度</string>
+
+    <!-- 行操作，供本应用弹出的短菜单使用。 -->
+    <string name="action_select">选用</string>
+    <string name="action_delete">删除</string>
+    <string name="action_share">分享</string>
+    <string name="action_update">更新</string>
+</resources>

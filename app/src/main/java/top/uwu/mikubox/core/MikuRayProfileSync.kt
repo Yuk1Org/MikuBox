@@ -25,6 +25,7 @@ import top.uwu.mikubox.profile.MihomoTrafficStore
  */
 object MikuRayProfileSync {
 
+    @Synchronized
     fun sync(context: Context) {
         val profiles = MihomoProfileStore.profiles(context)
         val known = profiles.map { it.id }.toSet()

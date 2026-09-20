@@ -128,6 +128,7 @@ object MihomoProfileStore {
     }
 
     fun remove(context: Context, profileId: String) {
+        top.uwu.mikubox.core.ScriptLibrary.removeProfile(context, profileId)
         synchronized(this) {
             val remaining = profiles(context).filterNot { it.id == profileId }
             replaceProfiles(context, remaining)

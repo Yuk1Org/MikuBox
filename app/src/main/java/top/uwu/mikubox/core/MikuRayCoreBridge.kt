@@ -13,6 +13,22 @@ import top.uwu.mikubox.service.VpnController
  * core and the app's own VPN service. It is installed once from `MikuApp`.
  */
 object MikuRayCoreBridge : MikuCoreBridge.Impl {
+    override fun connectionElapsedMillis(): Long = top.uwu.mikubox.service.ConnectionStatus.elapsedMillis()
+
+    override fun startOnBoot(): Boolean {
+        val context = MikuRayBridgeContext.application ?: return false
+        if (OnDemandSettings.enabled(context)) {
+            top.uwu.mikubox.service.OnDemandService.refresh(context)
+            return true
+        }
+        // Boot receivers cannot display the system consent activity. Wait for the
+        // user to connect from the UI when consent was revoked or never granted.
+        if (android.net.VpnService.prepare(context) != null) return false
+        MikuRayProfileSync.selectedProfileId()?.let { MihomoProfileStore.select(context, it) }
+        if (MihomoProfileStore.selected(context) == null) return false
+        top.uwu.mikubox.service.MikuVpnService.start(context)
+        return true
+    }
 
     override fun isRunning(): Boolean = VpnController.isRunning
 
@@ -166,6 +182,9 @@ object MikuRaySubscriptions : com.miku.ray.MikuSubscriptions.Impl {
                 existing.copy(
                     name = name.ifBlank { existing.name },
                     subscriptionUrl = url,
+                    // A changed source still needs a first fetch, including after
+                    // failure/retry; retain the old config until replacement succeeds.
+                    updatedAtMillis = if (existing.subscriptionUrl == url) existing.updatedAtMillis else 0L,
                     updateIntervalMinutes = minutes,
                     updateThroughProxy = throughProxy,
                 ),

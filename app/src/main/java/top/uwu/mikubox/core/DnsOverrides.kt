@@ -125,6 +125,8 @@ object DnsOverrides {
      * so a profile's own values stay in charge of everything else.
      */
     fun json(context: Context): JSONObject = JSONObject().apply {
+        CoreOverrides.extra(context, "dns.nameserver-policy").takeIf(String::isNotBlank)?.let { put("nameserver-policy", JSONObject(it)) }
+
         enhancedMode(context).value?.let { put("enhanced-mode", it) }
         cacheAlgorithm(context).value?.let { put("cache-algorithm", it) }
         fakeIpRange(context).takeIf { it.isNotBlank() }?.let { put("fake-ip-range", it) }
@@ -141,6 +143,10 @@ object DnsOverrides {
             OFF -> filter.put("geoip", false)
         }
         fallbackIpCidr(context).toList().takeIf { it.length() > 0 }?.let { filter.put("ipcidr", it) }
+        CoreOverrides.extra(context, "dns.fallback-filter.geoip-code").takeIf(String::isNotBlank)?.let { filter.put("geoip-code", it) }
+        listOf("geosite", "domain").forEach { key ->
+            CoreOverrides.extra(context, "dns.fallback-filter.$key").toList().takeIf { it.length() > 0 }?.let { filter.put(key, it) }
+        }
         if (filter.length() > 0) put("fallback-filter", filter)
 
         putFlag(this, "respect-rules", respectRules(context))

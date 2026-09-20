@@ -14,6 +14,17 @@ import org.json.JSONObject
  * everything else.
  */
 object CoreOverrides {
+    fun proxyCredentials(context: Context): Pair<String, String>? {
+        val configured = extra(context, "authentication").lineSequence().firstOrNull(String::isNotBlank)
+        val entry = configured ?: runCatching {
+            val root = org.yaml.snakeyaml.Yaml(org.yaml.snakeyaml.constructor.SafeConstructor(org.yaml.snakeyaml.LoaderOptions()))
+                .load<Any>(top.uwu.mikubox.profile.MihomoProfileStore.selected(context)?.config.orEmpty()) as? Map<*, *>
+            (root?.get("authentication") as? List<*>)?.firstOrNull()?.toString()
+        }.getOrNull() ?: return null
+        if (!entry.contains(':')) return null
+        return entry.substringBefore(':') to entry.substringAfter(':')
+    }
+
 
     const val UNSET = -1
     const val OFF = 0
@@ -210,8 +221,20 @@ object CoreOverrides {
 
     // endregion
 
+    fun extra(context: Context, key: String): String = prefs(context).getString("extra.$key", "").orEmpty()
+    fun setExtra(context: Context, key: String, value: String) = edit(context) { putString("extra.$key", value) }
+
+    fun dnsHijack(context: Context): String = prefs(context).getString("dns_hijack", null) ?: "any:53"
+    fun setDnsHijack(context: Context, value: String) = edit(context) { putString("dns_hijack", value.trim()) }
+    fun tlsVerification(context: Context): Int = tri(context, "tls_verification")
+    fun setTlsVerification(context: Context, value: Int) = putTri(context, "tls_verification", value)
+
     /** Core-wide keys, merged over the profile's own settings. */
     fun coreJson(context: Context): JSONObject = JSONObject().apply {
+        extra(context, "hosts").takeIf(String::isNotBlank)?.let { put("hosts", JSONObject(it)) }
+        extra(context, "global-ua").takeIf(String::isNotBlank)?.let { put("global-ua", it) }
+        extra(context, "authentication").takeIf(String::isNotBlank)?.let { put("authentication", JSONArray(it.lines().filter(String::isNotBlank))) }
+        putFlag(this, "miku-tls-verify", tlsVerification(context))
         findProcess(context).value?.let { put("find-process-mode", it) }
         geodataLoader(context).value?.let { put("geodata-loader", it) }
         clientFingerprint(context).value?.let { put("global-client-fingerprint", it) }
@@ -226,6 +249,7 @@ object CoreOverrides {
 
     /** Keys merged into the profile's `tun:` section. */
     fun tunJson(context: Context): JSONObject = JSONObject().apply {
+        put("dns-hijack", JSONArray(dnsHijack(context).split(Regex("[\\s,]+" )).filter(String::isNotBlank)))
         udpTimeout(context).takeIf { it > 0 }?.let { put("udp-timeout", it) }
         icmpTimeout(context).takeIf { it > 0 }?.let { put("icmp-timeout", it) }
         putFlag(this, "endpoint-independent-nat", endpointIndependentNat(context))

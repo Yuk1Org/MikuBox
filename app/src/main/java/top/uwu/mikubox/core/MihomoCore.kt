@@ -295,6 +295,16 @@ object MihomoCore {
 
     private val GEODATA_FILES = arrayOf("geosite.dat", "geoip.metadb")
 
+    fun updateSystemDns(addresses: List<String>) = nativeUpdateSystemDns(org.json.JSONArray(addresses.map { if (it.contains(':')) "[$it]:53" else "$it:53" }).toString())
+    private external fun nativeUpdateSystemDns(addresses: String)
+
+    fun evaluateScript(config: String, source: String): JSONObject {
+        val result = JSONObject(nativeEvaluateScript(config, source))
+        if (result.has("error")) error(result.getString("error"))
+        return result.getJSONObject("config")
+    }
+    private external fun nativeEvaluateScript(config: String, source: String): String
+
     private external fun nativeStart(config: String, home: String, tunFd: Int, dnsOverride: String, overridesJson: String): Int
     private external fun nativeStop()
     private external fun nativeLastError(): String

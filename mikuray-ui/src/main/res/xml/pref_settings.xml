@@ -60,14 +60,14 @@
     <Preference
         android:icon="@drawable/rmx_system_shield_line"
         android:key="pref_navigate_vpn_settings"
-        android:summary="@string/summary_navigate_vpn_settings"
+        android:summary="@string/mihomo_preview_vpn"
         android:title="@string/title_vpn_settings"
         app:layout="@layout/uwu_mid" />
 
     <Preference
         android:icon="@drawable/rmx_router_line"
         android:key="pref_navigate_core_settings"
-        android:summary="@string/mihomo_settings_hint"
+        android:summary="@string/mihomo_preview_core"
         android:title="@string/title_core_settings"
         app:layout="@layout/uwu_mid" />
 
@@ -76,7 +76,7 @@
      <Preference
         android:icon="@drawable/rmx_design_tools_line"
         android:key="pref_navigate_advanced_settings"
-        android:summary="@string/summary_navigate_advanced_settings"
+        android:summary="@string/mihomo_preview_advanced"
         android:title="@string/title_advanced"
         app:layout="@layout/uwu_bot" />
 

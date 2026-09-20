@@ -95,7 +95,9 @@ object MihomoCoreSettings {
      * the core otherwise defaults its stack to 9000, which cannot survive the
      * Android tunnel and stalls large transfers.
      */
-    fun overridesJson(context: Context, tunMtu: Int? = null): String = JSONObject().apply {
+    fun overridesJson(context: Context, tunMtu: Int? = null, tunIpv4: String? = null, tunIpv6: String? = null, profileId: String? = top.uwu.mikubox.profile.MihomoProfileStore.selected(context)?.id): String = JSONObject().apply {
+        ScriptLibrary.source(context, profileId)?.let { put("miku-override-script", it) }
+        put("miku-append-system-dns", CoreOverrides.extra(context, "dns.append-system") == "true")
         put("log-level", logLevel(context).value)
         put("allow-lan", allowLan(context))
         put("unified-delay", unifiedDelay(context))
@@ -107,6 +109,8 @@ object MihomoCoreSettings {
         val tun = CoreOverrides.tunJson(context)
         tunStack(context).value?.let { tun.put("stack", it) }
         tunMtu?.let { tun.put("mtu", it) }
+        tunIpv4?.let { put("miku-tun-ipv4", it) }
+        tunIpv6?.let { put("miku-tun-ipv6", it) }
         if (tun.length() > 0) put("tun", tun)
 
         val dns = DnsOverrides.json(context)

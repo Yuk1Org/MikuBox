@@ -8,6 +8,10 @@ import com.miku.ray.util.Utils
 
 /** Android VpnService interface options; no core configuration translation. */
 object AndroidVpnSettings {
+    fun allowBypass(context: Context): Boolean = CoreOverrides.extra(context, "vpn.allow-bypass").toBooleanStrictOrNull() ?: true
+    fun ipv6Inbound(context: Context): Boolean = CoreOverrides.extra(context, "vpn.ipv6-inbound").toBooleanStrictOrNull() ?: MihomoCoreSettings.ipv6(context)
+    fun proxyExclusions(context: Context): List<String> = CoreOverrides.extra(context, "vpn.proxy-exclusions").split(Regex("[\\s,]+")).filter(String::isNotBlank)
+
     /** CPU wake lock belongs to Android, independent of the proxy core. */
     fun keepAwake(context: Context): Boolean = MmkvManager.decodeSettingsBool(
         AppConfig.PREF_KEEP_AWAKE, CoreOverrides.wakeLock(context) == CoreOverrides.ON,

@@ -299,12 +299,12 @@ object SettingsManager {
     }
 
     fun getSocksUsername(): String? {
-        if (com.miku.ray.MikuSettings.impl != null) return null
+        com.miku.ray.MikuSettings.impl?.let { return it.proxyCredentials()?.first }
         return MmkvManager.decodeSettingsString(AppConfig.PREF_SOCKS_USERNAME)?.trim()?.takeIf { it.isNotEmpty() }
     }
 
     fun getSocksPassword(): String? {
-        if (com.miku.ray.MikuSettings.impl != null) return null
+        com.miku.ray.MikuSettings.impl?.let { return it.proxyCredentials()?.second }
         return MmkvManager.decodeSettingsString(AppConfig.PREF_SOCKS_PASSWORD)?.trim()?.takeIf { it.isNotEmpty() }
     }
 

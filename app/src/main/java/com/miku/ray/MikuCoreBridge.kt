@@ -17,6 +17,8 @@ object MikuCoreBridge {
 
     interface Impl {
         fun isRunning(): Boolean
+        fun connectionElapsedMillis(): Long = 0L
+        fun startOnBoot(): Boolean = false
 
         /** Starts the tunnel with [config]; false when it could not start. */
         fun start(config: String): Boolean
@@ -61,7 +63,11 @@ object MikuCoreBridge {
         impl = implementation
     }
 
+    fun startOnBoot(): Boolean = impl.startOnBoot()
+
     fun isRunning(): Boolean = impl.isRunning()
+
+    fun connectionElapsedMillis(): Long = impl.connectionElapsedMillis()
 
     fun start(config: String): Boolean = impl.start(config)
 

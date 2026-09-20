@@ -29,16 +29,15 @@ object MikuRayProfiles : MikuProfiles.Impl {
         val text = content.trim()
         val uri = android.net.Uri.parse(text)
         if (!text.contains('\n') && uri.scheme in listOf("clash", "sn")) {
-            val profile = top.uwu.mikubox.profile.MihomoProfileImporter.importUri(context, uri)
-            sync()
+            val profile = try {
+                top.uwu.mikubox.profile.MihomoProfileImporter.importUri(context, uri)
+            } finally { sync() }
             return (if (profile.isSubscription) 0 to 1 else 1 to 0)
         }
         if (!text.contains('\n') && uri.scheme in listOf("http", "https") && uri.userInfo == null) {
-            val profile = MihomoProfileStore.createSubscription(context, uri.host ?: "Subscription", text)
-            // Keep the subscription available for retry if the initial download fails.
-            sync()
-            MihomoSubscriptionUpdater.update(context, profile)
-            sync()
+            try {
+                top.uwu.mikubox.profile.MihomoProfileImporter.importSubscription(context, uri.host ?: "Subscription", text)
+            } finally { sync() }
             return 0 to 1
         }
         save(null, context.getString(top.uwu.mikubox.R.string.profile_imported_default_name), text)

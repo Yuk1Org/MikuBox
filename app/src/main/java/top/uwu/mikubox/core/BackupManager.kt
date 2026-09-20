@@ -20,8 +20,10 @@ object BackupManager {
         "mihomo_core_settings",
         "mihomo_routing_choices",
         "miku_core_overrides",
+        "miku_android_routes",
         "miku_dns_settings",
         "miku_dns_overrides",
+        OnDemandSettings.STORE,
     )
 
     fun export(context: Context): String {
@@ -67,7 +69,11 @@ object BackupManager {
             for (key in entries.keys()) {
                 val entry = entries.getJSONObject(key)
                 when (entry.getString("t")) {
-                    "s" -> editor.putString(key, entry.getString("v"))
+                    "s" -> {
+                        val value = entry.getString("v")
+                        if (name == "miku_core_overrides" && key == "extra.${ScriptLibrary.KEY}") ScriptLibrary.decode(value)
+                        editor.putString(key, value)
+                    }
                     "i" -> editor.putInt(key, entry.getInt("v"))
                     "l" -> editor.putLong(key, entry.getLong("v"))
                     "b" -> editor.putBoolean(key, entry.getBoolean("v"))

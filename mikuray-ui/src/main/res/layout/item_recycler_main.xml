@@ -151,7 +151,7 @@
                                 android:contentDescription="@string/menu_item_del_config"
                                 android:focusable="true"
                                 app:srcCompat="@drawable/ic_delete_empty"
-                                app:tint="?attr/colorError" />
+                                app:tint="?attr/colorOnSurfaceVariant" />
                             <androidx.appcompat.widget.AppCompatImageButton
                                 android:id="@+id/layout_more"
                                 android:layout_width="40dp"
@@ -189,7 +189,7 @@
                             android:lines="1"
                             android:textAppearance="?attr/textAppearanceLabelSmall"
                             android:textColor="@color/colorPing"
-                            android:textSize="11sp" />
+                            android:textSize="12sp" />
                         <TextView
                             android:id="@+id/tv_country_code"
                             android:layout_width="wrap_content"
@@ -198,7 +198,7 @@
                             android:lines="1"
                             android:textAppearance="?attr/textAppearanceLabelSmall"
                             android:textColor="?attr/colorOnSurfaceVariant"
-                            android:textSize="11sp"
+                            android:textSize="12sp"
                             android:visibility="gone" />
                     </LinearLayout>
 
@@ -225,7 +225,7 @@
                                 android:lines="1"
                                 android:textAppearance="?attr/textAppearanceLabelSmall"
                                 android:textColor="?attr/colorOnSurfaceVariant"
-                                android:textSize="11sp"
+                                android:textSize="12sp"
                                 android:visibility="gone" />
                             <TextView
                                 android:id="@+id/tv_security"
@@ -236,7 +236,7 @@
                                 android:lines="1"
                                 android:textAppearance="?attr/textAppearanceLabelSmall"
                                 android:textColor="?attr/colorOnSurfaceVariant"
-                                android:textSize="11sp"
+                                android:textSize="12sp"
                                 android:visibility="gone" />
                         </LinearLayout>
                         <View
@@ -250,7 +250,7 @@
                             android:lines="1"
                             android:textAppearance="?attr/textAppearanceLabelSmall"
                             android:textColor="?attr/colorOnSurfaceVariant"
-                            android:textSize="11sp"
+                            android:textSize="12sp"
                             android:visibility="gone" />
                     </LinearLayout>
                 </LinearLayout>

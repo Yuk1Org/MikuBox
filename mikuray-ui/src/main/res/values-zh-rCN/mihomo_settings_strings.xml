@@ -33,4 +33,17 @@
 <string name="mihomo_invalid_value">数值超出允许范围</string>
 <string name="mihomo_settings_title">mihomo 设置</string>
 <string name="mihomo_setting_keep_alive_idle">TCP 保活空闲时间（秒） · keep-alive-idle</string>
+    <string name="mihomo_section_core_basics">基础</string>
+    <string name="mihomo_section_core_overrides">覆盖与扩展</string>
+    <string name="mihomo_section_dns_resolvers">解析服务器</string>
+    <string name="mihomo_section_dns_behavior">行为与缓存</string>
+    <string name="mihomo_section_dns_fakeip">Fake-IP 与增强模式</string>
+    <string name="mihomo_section_dns_fallback">回退过滤</string>
+    <string name="mihomo_section_vpn_general">常规</string>
+    <string name="mihomo_section_vpn_tun">TUN 接口</string>
+    <string name="mihomo_section_vpn_routing">路由与分流</string>
+    <string name="mihomo_section_adv_performance">核心性能</string>
+    <string name="mihomo_section_adv_keepalive">连接保活</string>
+    <string name="mihomo_section_adv_tls">传输安全</string>
+    <string name="mihomo_section_adv_controller">外部控制</string>
 </resources>

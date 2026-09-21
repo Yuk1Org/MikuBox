@@ -181,11 +181,6 @@ ShareConfigBottomSheet.OnShareOptionClickListener {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(binding.root)
-        com.miku.ray.ui.splash.StartupArtwork.install(this,
-            savedInstanceState == null && intent.getBooleanExtra(com.miku.ray.ui.splash.StartupArtwork.EXTRA_SHOW, false),
-            intent.getBooleanExtra(com.miku.ray.ui.splash.StartupArtwork.EXTRA_SYSTEM_HANDOFF, false))
-        intent.removeExtra(com.miku.ray.ui.splash.StartupArtwork.EXTRA_SHOW)
-        intent.removeExtra(com.miku.ray.ui.splash.StartupArtwork.EXTRA_SYSTEM_HANDOFF)
         showTestBuildInfoIfNeeded()
 
         hideLoading()
@@ -456,19 +451,27 @@ ShareConfigBottomSheet.OnShareOptionClickListener {
 
             val bottomStatus = view.findViewById<View>(R.id.blur_bottom_status)
             val quickActions = view.findViewById<View>(R.id.layout_quick_actions)
+            val routingMode = view.findViewById<View>(R.id.routing_mode)
+            val routingBaseMargin = (routingMode?.layoutParams as? ViewGroup.MarginLayoutParams)?.bottomMargin ?: 0
 
             val baseMarginBottom = (16 * resources.displayMetrics.density).toInt() + systemBars.bottom
             val statusGap = resources.getDimensionPixelSize(R.dimen.padding_spacing_dp8)
 
             fun applyBottomStatusMargin() {
+                val shifted = quickActionsEnabled && quickActions?.isVisible == true
                 val bottomStatusParams = bottomStatus?.layoutParams as? ViewGroup.MarginLayoutParams
                 bottomStatusParams?.let {
-                    it.bottomMargin = if (quickActionsEnabled && quickActions?.isVisible == true) {
-                        baseMarginBottom + quickActions.height + statusGap
-                    } else {
-                        baseMarginBottom
-                    }
+                    it.bottomMargin = if (shifted) baseMarginBottom + quickActions.height + statusGap else baseMarginBottom
                     bottomStatus.layoutParams = it
+                }
+                // The routing bar rides above the status strip; when the quick
+                // actions row pushes the strip up, the bar moves with it or the
+                // row covers its lower clickable half.
+                routingMode?.let { bar ->
+                    (bar.layoutParams as? ViewGroup.MarginLayoutParams)?.let {
+                        it.bottomMargin = routingBaseMargin + if (shifted) quickActions.height + statusGap else 0
+                        bar.layoutParams = it
+                    }
                 }
             }
 
@@ -550,7 +553,7 @@ ShareConfigBottomSheet.OnShareOptionClickListener {
     private fun refreshIpStateText() {
         val showRealtimeTraffic = MmkvManager.decodeSettingsBool(AppConfig.PREF_SHOW_REALTIME_TRAFFIC_IP, false)
 
-        binding.tvIpState.text = if (showRealtimeTraffic) {
+        val value = if (showRealtimeTraffic) {
             if (mainViewModel.isRunning.value && lastTrafficSpeedText.isNotEmpty()) {
                 lastTrafficSpeedText
             } else {
@@ -559,7 +562,9 @@ ShareConfigBottomSheet.OnShareOptionClickListener {
         } else {
             lastIpStateText.ifEmpty { getString(R.string.ip_unknown) }
         }
+        binding.tvIpState.showValue(value, !showRealtimeTraffic && mainViewModel.isRunning.value)
     }
+
 
     private fun refreshAllGroupListDisplays() {
         for (i in groupPagerAdapter.groups.indices) {
@@ -892,6 +897,7 @@ ShareConfigBottomSheet.OnShareOptionClickListener {
     }
 
     private fun setupListeners() {
+        binding.routingMode.onSelectionChanged = { mainViewModel.fetchCurrentIp(delayMs = 1200L) }
         binding.fab.setOnClickListener { mainViewModel.onFabClicked() }
         binding.fab.shrink()
 
@@ -919,20 +925,32 @@ ShareConfigBottomSheet.OnShareOptionClickListener {
         }
 
         binding.btnQuickCountryCode.setOnClickListener {
-            mainViewModel.ensureServerCacheReady()
-            countryCodeProgressDialog.show(mainViewModel.serversCache.count())
+            val targetCount = mainViewModel.quickActionTargetGuids().count()
+            if (targetCount == 0) {
+                toastInfo(getString(R.string.empty_server_list_message))
+                return@setOnClickListener
+            }
+            countryCodeProgressDialog.show(targetCount)
             mainViewModel.testAllCountryCodes()
         }
 
         binding.btnQuickTcping.setOnClickListener {
-            mainViewModel.ensureServerCacheReady()
-            urlTestProgressDialog.show(mainViewModel.serversCache.count(), R.string.title_ping_all_server)
+            val targetCount = mainViewModel.quickActionTargetGuids().count()
+            if (targetCount == 0) {
+                toastInfo(getString(R.string.empty_server_list_message))
+                return@setOnClickListener
+            }
+            urlTestProgressDialog.show(targetCount, R.string.title_ping_all_server)
             mainViewModel.testAllRealPing(true)
         }
 
         binding.btnQuickRealPing.setOnClickListener {
-            mainViewModel.ensureServerCacheReady()
-            urlTestProgressDialog.show(mainViewModel.serversCache.count(), R.string.title_real_ping_all_server)
+            val targetCount = mainViewModel.quickActionTargetGuids().count()
+            if (targetCount == 0) {
+                toastInfo(getString(R.string.empty_server_list_message))
+                return@setOnClickListener
+            }
+            urlTestProgressDialog.show(targetCount, R.string.title_real_ping_all_server)
             mainViewModel.testAllRealPing()
         }
 
@@ -994,27 +1012,34 @@ ShareConfigBottomSheet.OnShareOptionClickListener {
     }
 
     override fun onMoreOptionClicked(viewId: Int) {
-        if (com.miku.ray.MikuProfiles.impl != null &&
-            viewId in setOf(R.id.real_ping_all, R.id.country_code_all)) {
-            toastInfo(getString(R.string.mihomo_batch_test_unavailable))
-            return
-        }
         when (viewId) {
             R.id.export_all -> exportAll()
             R.id.export_group_file -> exportGroupAsFile()
             R.id.real_ping_all -> {
-                mainViewModel.ensureServerCacheReady()
-                urlTestProgressDialog.show(mainViewModel.serversCache.count(), R.string.title_real_ping_all_server)
+                val targetCount = mainViewModel.quickActionTargetGuids().count()
+                if (targetCount == 0) {
+                    toastInfo(getString(R.string.empty_server_list_message))
+                    return
+                }
+                urlTestProgressDialog.show(targetCount, R.string.title_real_ping_all_server)
                 mainViewModel.testAllRealPing()
             }
             R.id.country_code_all -> {
-                mainViewModel.ensureServerCacheReady()
-                countryCodeProgressDialog.show(mainViewModel.serversCache.count())
+                val targetCount = mainViewModel.quickActionTargetGuids().count()
+                if (targetCount == 0) {
+                    toastInfo(getString(R.string.empty_server_list_message))
+                    return
+                }
+                countryCodeProgressDialog.show(targetCount)
                 mainViewModel.testAllCountryCodes()
             }
             R.id.tcping_all -> {
-                mainViewModel.ensureServerCacheReady()
-                urlTestProgressDialog.show(mainViewModel.serversCache.count(), R.string.title_ping_all_server)
+                val targetCount = mainViewModel.quickActionTargetGuids().count()
+                if (targetCount == 0) {
+                    toastInfo(getString(R.string.empty_server_list_message))
+                    return
+                }
+                urlTestProgressDialog.show(targetCount, R.string.title_ping_all_server)
                 mainViewModel.testAllRealPing(true)
             }
             R.id.service_restart -> LauncherManager.restartServiceOrStart(this, ::startV2Ray)
@@ -1261,7 +1286,7 @@ ShareConfigBottomSheet.OnShareOptionClickListener {
                     mainViewModel.alertEvent.collect { (isSuccess, message) ->
                         if (isSuccess) {
                             snackbarSuccess(message, title = getString(R.string.title_alerter_success))
-                            mainViewModel.fetchCurrentIp()
+                            mainViewModel.fetchCurrentIp(delayMs = 800L)
                             if (mainViewModel.isRunning.value) {
                                 applyRunningState(isRunning = true)
                                 if (pendingConnectionTest) {

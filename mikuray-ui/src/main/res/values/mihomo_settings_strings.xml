@@ -33,4 +33,17 @@
 <string name="mihomo_invalid_value">Value outside the allowed range</string>
 <string name="mihomo_settings_title">mihomo settings</string>
 <string name="mihomo_setting_keep_alive_idle">keep-alive-idle</string>
+    <string name="mihomo_section_core_basics">Basics</string>
+    <string name="mihomo_section_core_overrides">Overrides &amp; extras</string>
+    <string name="mihomo_section_dns_resolvers">Resolvers</string>
+    <string name="mihomo_section_dns_behavior">Behaviour &amp; cache</string>
+    <string name="mihomo_section_dns_fakeip">Fake-IP &amp; enhanced mode</string>
+    <string name="mihomo_section_dns_fallback">Fallback filter</string>
+    <string name="mihomo_section_vpn_general">General</string>
+    <string name="mihomo_section_vpn_tun">TUN interface</string>
+    <string name="mihomo_section_vpn_routing">Routing &amp; split tunneling</string>
+    <string name="mihomo_section_adv_performance">Core performance</string>
+    <string name="mihomo_section_adv_keepalive">Keep-alive</string>
+    <string name="mihomo_section_adv_tls">Transport security</string>
+    <string name="mihomo_section_adv_controller">External controller</string>
 </resources>

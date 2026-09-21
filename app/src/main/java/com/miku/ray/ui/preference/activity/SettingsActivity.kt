@@ -113,6 +113,10 @@ class SettingsActivity : HelperBaseActivity(), SearchPreferenceResultListener {
             setBreadcrumbsEnabled(true)
             setFragmentContainerViewId(R.id.settings_container)
             index(R.xml.pref_ui_settings).addBreadcrumb(R.string.title_ui_settings)
+            index(R.xml.pref_ui_home).addBreadcrumb(R.string.title_ui_home)
+            index(R.xml.pref_ui_banner).addBreadcrumb(R.string.title_ui_banner)
+            index(R.xml.pref_ui_alerts).addBreadcrumb(R.string.title_ui_alerts)
+            index(R.xml.pref_about_update).addBreadcrumb(R.string.title_about_update)
             index(R.xml.pref_vpn_settings).addBreadcrumb(R.string.title_vpn_settings)
             index(R.xml.pref_core_settings).addBreadcrumb(R.string.title_core_settings)
             index(R.xml.pref_advanced_settings).addBreadcrumb(R.string.title_advanced)
@@ -392,7 +396,11 @@ class SettingsActivity : HelperBaseActivity(), SearchPreferenceResultListener {
         searchActionView.cancelSearch()
 
         val targetActivity: Class<*>? = when (result.resourceFile) {
-            R.xml.pref_ui_settings       -> UiSettingsActivity::class.java
+            R.xml.pref_ui_settings        -> UiSettingsActivity::class.java
+            R.xml.pref_ui_home            -> HomeSettingsActivity::class.java
+            R.xml.pref_ui_banner          -> BannerSettingsActivity::class.java
+            R.xml.pref_ui_alerts          -> AlertSettingsActivity::class.java
+            R.xml.pref_about_update       -> AboutUpdateActivity::class.java
             R.xml.pref_vpn_settings      -> VpnSettingsActivity::class.java
             R.xml.pref_core_settings     -> CoreSettingsActivity::class.java
             R.xml.pref_advanced_settings -> AdvancedSettingsActivity::class.java
@@ -430,6 +438,7 @@ class SettingsActivity : HelperBaseActivity(), SearchPreferenceResultListener {
         private val navigateVpnSettings by lazy { findPreference<Preference>(AppConfig.PREF_NAVIGATE_VPN_SETTINGS) }
         private val navigateCoreSettings by lazy { findPreference<Preference>(AppConfig.PREF_NAVIGATE_CORE_SETTINGS) }
         private val navigateAdvancedSettings by lazy { findPreference<Preference>(AppConfig.PREF_NAVIGATE_ADVANCED_SETTINGS) }
+        private val navigateAboutUpdate by lazy { findPreference<Preference>(AppConfig.PREF_NAVIGATE_ABOUT_UPDATE) }
 
         private val pickCustomBannerSettingsCharacter =
             registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
@@ -549,6 +558,11 @@ class SettingsActivity : HelperBaseActivity(), SearchPreferenceResultListener {
 
             navigateAdvancedSettings?.setOnPreferenceClickListener {
                 startActivity(android.content.Intent(requireContext(), AdvancedSettingsActivity::class.java))
+                true
+            }
+
+            navigateAboutUpdate?.setOnPreferenceClickListener {
+                startActivity(android.content.Intent(requireContext(), AboutUpdateActivity::class.java))
                 true
             }
         }

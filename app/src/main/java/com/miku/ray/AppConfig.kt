@@ -104,7 +104,12 @@ object AppConfig {
     const val DEFAULT_MUX_XUDP_CONCURRENCY = "8"
 
     const val PREF_NAVIGATE_UI_SETTINGS = "pref_navigate_ui_settings"
+    const val PREF_NAVIGATE_UI_HOME = "pref_navigate_ui_home"
+    const val PREF_NAVIGATE_UI_BANNER = "pref_navigate_ui_banner"
+    const val PREF_NAVIGATE_UI_ALERTS = "pref_navigate_ui_alerts"
+    const val PREF_NAVIGATE_ABOUT_UPDATE = "pref_navigate_about_update"
     const val PREF_NAVIGATE_CHECK_UPDATE = "pref_navigate_check_update"
+    const val PREF_AUTO_CHECK_UPDATE = "pref_auto_check_update"
     const val PREF_NAVIGATE_VPN_SETTINGS = "pref_navigate_vpn_settings"
     const val PREF_NAVIGATE_CORE_SETTINGS = "pref_navigate_core_settings"
     const val PREF_NAVIGATE_FRAGMENT_SETTINGS = "pref_navigate_fragment_settings"

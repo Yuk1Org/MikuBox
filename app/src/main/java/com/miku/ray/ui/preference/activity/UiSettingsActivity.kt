@@ -2,43 +2,29 @@ package com.miku.ray.ui.preference.activity
 
 import com.miku.ray.remixicon.R as RemixR
 import android.app.Activity
-import android.Manifest
 import android.content.Intent
 import android.content.res.Resources
-import android.media.MediaPlayer
-import android.content.pm.PackageManager
-import android.graphics.Color
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.text.InputType
 import android.view.Menu
 import android.view.MenuItem
-import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.widget.TextView
-import androidx.activity.result.PickVisualMediaRequest
-import androidx.appcompat.app.AlertDialog
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AppCompatDelegate
-import androidx.core.content.ContextCompat
-import androidx.core.os.LocaleListCompat
 import androidx.lifecycle.lifecycleScope
-import androidx.preference.EditTextPreference
+import androidx.appcompat.app.AlertDialog
 import androidx.preference.ListPreference
 import androidx.preference.Preference
-import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.SwitchPreferenceCompat
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.textfield.TextInputEditText
 import com.miku.ray.AppConfig
-import com.miku.ray.util.SearchBarChipMode
 import com.miku.ray.R
 import com.miku.ray.extension.applyEdgeToEdgeListInsets
-import com.miku.ray.extension.snackbarDefault
-import com.miku.ray.extension.snackbarSuccess
 import com.miku.ray.extension.toastError
 import com.miku.ray.extension.toastInfo
 import com.miku.ray.extension.toastSuccess
@@ -48,34 +34,27 @@ import com.miku.ray.handler.SettingsManager
 import com.miku.ray.helper.MmkvPreferenceDataStore
 import com.miku.ray.ui.base.BaseActivity
 import com.miku.ray.ui.preference.SearchPreferenceHighlighter
-import com.miku.ray.ui.checkupdate.CheckUpdateActivity
-import com.miku.ray.util.TabIconPickerAdapter
-import com.miku.ray.ui.bottomsheet.IndicatorStyleBottomSheet
 import com.miku.ray.ui.dialog.DpiSliderDialog
 import com.miku.ray.ui.dialog.FontSizeSliderDialog
 import kotlin.math.roundToInt
 import com.miku.ray.ui.dialog.BlurIntensityDialog
 import com.miku.ray.ui.dialog.BlurBottomIntensityDialog
 import com.miku.ray.ui.dialog.ThemeColorDialog
-import com.miku.ray.ui.dialog.TabIconPickerDialog
-import com.miku.ray.ui.dialog.BannerHeightSliderDialog
-import com.miku.ray.ui.dialog.HeaderTopRowPaddingDialog
-import com.miku.ray.ui.preference.CustomBannerPreference
+import com.miku.ray.ui.dialog.AppIconPickerDialog
 import com.miku.ray.ui.preference.CategoryStyleHelper
-import com.miku.ray.util.AppNameHelper
-import com.miku.ray.util.BannerColorExtractor
 import com.miku.ray.util.CustomFontManager
 import com.miku.ray.util.ThemeManager
 import com.miku.ray.util.ThemeShareManager
-import com.miku.ray.ui.weather.WeatherHelper
 import com.miku.ray.util.showBlur
-import com.yalantis.ucrop.UCrop
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.File
-import java.io.IOException
 
+/**
+ * Appearance hub: theme, appearance, font and blur live here; home-screen
+ * behaviour, banners and notification/sound are one tap away in their own
+ * pages, and the version/update banner moved to AboutUpdateActivity.
+ */
 class UiSettingsActivity : BaseActivity() {
     private val exportUiTheme = registerForActivityResult(
         ActivityResultContracts.CreateDocument(ThemeShareManager.MIME_TYPE)
@@ -235,107 +214,31 @@ class UiSettingsActivity : BaseActivity() {
 
     class UiSettingsFragment : PreferenceFragmentCompat() {
 
-        private val locationPermissionLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) {
-            if (SearchBarChipMode.current() in setOf(
-                    SearchBarChipMode.WEATHER,
-                    SearchBarChipMode.DUAL_SWIPE
-            )) {
-                WeatherHelper.scheduleBackgroundUpdates(requireContext(), forceReschedule = true)
-            }
-        }
-
         private val appTheme by lazy { findPreference<Preference>(AppConfig.PREF_APP_THEME) }
         private val dynamicColor by lazy { findPreference<SwitchPreferenceCompat>(AppConfig.PREF_DYNAMIC_COLOR) }
         private val dynamicColorBanner by lazy { findPreference<SwitchPreferenceCompat>(AppConfig.PREF_DYNAMIC_COLOR_BANNER) }
-        private val disableHomeBanner by lazy { findPreference<SwitchPreferenceCompat>(AppConfig.PREF_DISABLE_HOME_BANNER) }
         private val trueBlack by lazy { findPreference<SwitchPreferenceCompat>(AppConfig.PREF_TRUE_BLACK) }
         private val enableBlur by lazy { findPreference<SwitchPreferenceCompat>(AppConfig.PREF_ENABLE_BLUR) }
         private val useSystemBlur by lazy { findPreference<SwitchPreferenceCompat>(AppConfig.PREF_USE_SYSTEM_BLUR) }
         private val blurBottomStatus by lazy { findPreference<SwitchPreferenceCompat>(AppConfig.PREF_BLUR_BOTTOM_STATUS) }
-        private val fabExtended by lazy { findPreference<SwitchPreferenceCompat>(AppConfig.PREF_FAB_EXTENDED) }
-        private val appLanguage by lazy { findPreference<ListPreference>(AppConfig.PREF_LANGUAGE) }
         private val nightTheme by lazy { findPreference<ListPreference>(AppConfig.PREF_UI_MODE_NIGHT) }
         private val iconShape by lazy { findPreference<ListPreference>(AppConfig.PREF_ICON_SHAPE) }
         private val arrowShape by lazy { findPreference<ListPreference>(AppConfig.PREF_ARROW_SHAPE) }
-        private val appIcon by lazy { findPreference<com.miku.ray.ui.dialog.AppIconPickerDialog>(AppConfig.PREF_APP_ICON) }
+        private val appIcon by lazy { findPreference<AppIconPickerDialog>(AppConfig.PREF_APP_ICON) }
         private val customAppName by lazy { findPreference<ListPreference>(AppConfig.PREF_CUSTOM_APP_NAME) }
         private val customDpi by lazy { findPreference<DpiSliderDialog>(AppConfig.PREF_CUSTOM_DPI) }
         private val fontSizeSlider by lazy { findPreference<FontSizeSliderDialog>(AppConfig.PREF_APP_FONT_SIZE) }
         private val blurIntensity by lazy { findPreference<BlurIntensityDialog>(AppConfig.PREF_BLUR_INTENSITY) }
         private val blurBottomIntensity by lazy { findPreference<BlurBottomIntensityDialog>(AppConfig.PREF_BLUR_BOTTOM_INTENSITY) }
-        private val indicatorStyle by lazy { findPreference<Preference>(AppConfig.PREF_INDICATOR_STYLE) }
-        private val navigateCheckUpdate by lazy { findPreference<CustomBannerPreference>(AppConfig.PREF_NAVIGATE_CHECK_UPDATE) }
         private val appFont by lazy { findPreference<Preference>(AppConfig.PREF_APP_FONT) }
         private val customFontSwitch by lazy { findPreference<SwitchPreferenceCompat>(AppConfig.PREF_APP_FONT_USE_CUSTOM) }
         private val customFontPick by lazy { findPreference<Preference>(AppConfig.PREF_ACTION_PICK_CUSTOM_FONT) }
         private val customFontDelete by lazy { findPreference<Preference>(AppConfig.PREF_ACTION_DELETE_CUSTOM_FONT) }
         private val categoryStyle by lazy { findPreference<ListPreference>(AppConfig.PREF_CATEGORY_STYLE) }
         private val showSplash by lazy { findPreference<SwitchPreferenceCompat>(AppConfig.PREF_SHOW_SPLASH) }
-        private val bannerHeightSlider by lazy { findPreference<BannerHeightSliderDialog>(AppConfig.PREF_HOME_BANNER_HEIGHT) }
-        private val headerTopRowPaddingSlider by lazy { findPreference<HeaderTopRowPaddingDialog>(AppConfig.PREF_HEADER_TOP_ROW_PADDING) }
-        private val changeHomeBannerImageAction by lazy { findPreference<Preference>(AppConfig.PREF_ACTION_CHANGE_HOME_BANNER) }
-        private val deleteHomeBannerImageAction by lazy { findPreference<Preference>(AppConfig.PREF_ACTION_DELETE_HOME_BANNER) }
-        private val groupAllTabIcon by lazy { findPreference<Preference>(AppConfig.PREF_GROUP_ALL_TAB_ICON) }
-        private val tabBadgeLimit by lazy { findPreference<ListPreference>(AppConfig.PREF_TAB_BADGE_LIMIT) }
-        private val searchBarChip by lazy { findPreference<ListPreference>(AppConfig.PREF_SEARCH_BAR_CHIP) }
-        private val selectedBannerStyleEnabled by lazy { findPreference<SwitchPreferenceCompat>(AppConfig.PREF_SELECTED_BANNER_STYLE_ENABLED) }
-        private val selectedBannerCategory by lazy { findPreference<PreferenceCategory>("pref_category_selected_banner") }
-        private val customConnectSound by lazy { findPreference<Preference>("action_pick_custom_connect_sound") }
-        private val customDisconnectSound by lazy { findPreference<Preference>("action_pick_custom_disconnect_sound") }
-        private val deleteCustomSounds by lazy { findPreference<Preference>("action_delete_custom_sounds") }
-
-        private val weatherUnit by lazy { findPreference<ListPreference>(AppConfig.PREF_WEATHER_USE_CELSIUS) }
-        private val weatherCustomLocation by lazy { findPreference<EditTextPreference>(AppConfig.PREF_WEATHER_CUSTOM_LOCATION) }
-        private val searchChipGradient by lazy { findPreference<SwitchPreferenceCompat>(AppConfig.PREF_SEARCH_CHIP_GRADIENT) }
-        private val toolbarCenterSubtitleMode by lazy { findPreference<SwitchPreferenceCompat>(AppConfig.PREF_TOOLBAR_CENTER_SUBTITLE_MODE) }
-        private val showRealtimeTrafficIp by lazy { findPreference<SwitchPreferenceCompat>(AppConfig.PREF_SHOW_REALTIME_TRAFFIC_IP) }
-        private val showIspInfo by lazy { findPreference<SwitchPreferenceCompat>(AppConfig.PREF_SHOW_ISP_INFO) }
-
-        private var tabIconPickerDialog: androidx.appcompat.app.AlertDialog? = null
-
-        private val pickProfileImage =
-        registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-            if (uri != null) startCropProfileActivity(uri)
-        }
-
-        private val pickHomeBannerImage =
-        registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-            if (uri != null) {
-                if (isGif(uri)) {
-                    saveGifBannerDirectly(uri, AppConfig.PREF_CUSTOM_HOME_BANNER_URI, "home_banner_") {
-                        extractAndSaveBannerColor(it)
-                        broadcastHomeBannerChanged()
-                        requireContext().toastSuccess(getString(R.string.home_banner_updated))
-                    }
-                } else {
-                    startCropHomeBannerActivity(uri)
-                }
-            }
-        }
-
-        private val pickSheetBannerImage =
-        registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-            if (uri != null) {
-                if (isGif(uri)) {
-                    saveGifBannerDirectly(uri, AppConfig.PREF_CUSTOM_SHEET_BANNER_URI, "sheet_banner_") {
-                        requireContext().toastSuccess(getString(R.string.sheet_banner_updated))
-                    }
-                } else {
-                    startCropSheetBannerActivity(uri)
-                }
-            }
-        }
-
-        private val pickSelectedBannerImage =
-        registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-            if (uri != null) startCropSelectedBannerActivity(uri)
-        }
-
-        private val pickThemeBannerImage =
-        registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-            if (uri != null) startCropThemeBannerActivity(uri)
-        }
+        private val navigateUiHome by lazy { findPreference<Preference>(AppConfig.PREF_NAVIGATE_UI_HOME) }
+        private val navigateUiBanner by lazy { findPreference<Preference>(AppConfig.PREF_NAVIGATE_UI_BANNER) }
+        private val navigateUiAlerts by lazy { findPreference<Preference>(AppConfig.PREF_NAVIGATE_UI_ALERTS) }
 
         private val pickCustomFontFile =
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -357,175 +260,28 @@ class UiSettingsActivity : BaseActivity() {
             }
         }
 
-        private val pickCustomConnectSoundFile =
-        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-            if (uri != null) saveCustomSound(uri, AppConfig.PREF_CUSTOM_CONNECT_SOUND_URI, "connect_sound_")
-        }
-
-        private val pickCustomDisconnectSoundFile =
-        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-            if (uri != null) saveCustomSound(uri, AppConfig.PREF_CUSTOM_DISCONNECT_SOUND_URI, "disconnect_sound_")
-        }
-
-        private val cropHomeBannerImage =
-        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            if (result.resultCode == Activity.RESULT_OK && result.data != null) {
-                val cacheUri = UCrop.getOutput(result.data!!) ?: return@registerForActivityResult
-                lifecycleScope.launch {
-                    try {
-                        val oldUri = MmkvManager.decodeSettingsString(AppConfig.PREF_CUSTOM_HOME_BANNER_URI)
-                        deleteOldFile(oldUri)
-                        val savedUri = saveBannerFile(cacheUri, "home_banner_")
-                        MmkvManager.encodeSettings(AppConfig.PREF_CUSTOM_HOME_BANNER_URI, savedUri.toString())
-                        SettingsManager.preloadBanner(requireContext(), savedUri.toString())
-
-                        extractAndSaveBannerColor(savedUri)
-                        broadcastHomeBannerChanged()
-                        requireContext().toastSuccess(getString(R.string.home_banner_updated))
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                    }
-                }
-            } else if (result.resultCode == UCrop.RESULT_ERROR) {
-                UCrop.getError(result.data!!)?.printStackTrace()
-            }
-        }
-
-        private val cropThemeBannerImage =
-        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            if (result.resultCode == Activity.RESULT_OK && result.data != null) {
-                val cacheUri = UCrop.getOutput(result.data!!) ?: return@registerForActivityResult
-                lifecycleScope.launch {
-                    try {
-                        val oldUri = MmkvManager.decodeSettingsString(AppConfig.PREF_CUSTOM_THEME_BANNER_URI)
-                        deleteOldFile(oldUri)
-                        val savedUri = saveBannerFile(cacheUri, "theme_banner_")
-                        MmkvManager.encodeSettings(AppConfig.PREF_CUSTOM_THEME_BANNER_URI, savedUri.toString())
-                        SettingsManager.preloadBanner(requireContext(), savedUri.toString())
-                        navigateCheckUpdate?.refresh()
-                        requireContext().toastSuccess(getString(R.string.theme_banner_updated))
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                    }
-                }
-            } else if (result.resultCode == UCrop.RESULT_ERROR) {
-                UCrop.getError(result.data!!)?.printStackTrace()
-            }
-        }
-
-        private val cropProfileImage =
-        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            if (result.resultCode == Activity.RESULT_OK && result.data != null) {
-                val cacheUri = UCrop.getOutput(result.data!!) ?: return@registerForActivityResult
-                lifecycleScope.launch {
-                    try {
-                        val oldUri = MmkvManager.decodeSettingsString(AppConfig.PREF_PROFILE_BANNER_URI)
-                        deleteOldFile(oldUri)
-                        val savedUri = saveBannerFile(cacheUri, "profile_banner_")
-                        MmkvManager.encodeSettings(AppConfig.PREF_PROFILE_BANNER_URI, savedUri.toString())
-                        SettingsManager.preloadBanner(requireContext(), savedUri.toString())
-                        broadcastProfileChanged()
-                        requireContext().toastSuccess(getString(R.string.custom_banner_profile_set))
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                    }
-                }
-            } else if (result.resultCode == UCrop.RESULT_ERROR) {
-                UCrop.getError(result.data!!)?.printStackTrace()
-            }
-        }
-
-        private val cropSheetBannerImage =
-        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            if (result.resultCode == Activity.RESULT_OK && result.data != null) {
-                val cacheUri = UCrop.getOutput(result.data!!) ?: return@registerForActivityResult
-                lifecycleScope.launch {
-                    try {
-                        val oldUri = MmkvManager.decodeSettingsString(AppConfig.PREF_CUSTOM_SHEET_BANNER_URI)
-                        deleteOldFile(oldUri)
-                        val savedUri = saveBannerFile(cacheUri, "sheet_banner_")
-                        MmkvManager.encodeSettings(AppConfig.PREF_CUSTOM_SHEET_BANNER_URI, savedUri.toString())
-                        SettingsManager.preloadBanner(requireContext(), savedUri.toString())
-                        requireContext().toastSuccess(getString(R.string.sheet_banner_updated))
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                    }
-                }
-            } else if (result.resultCode == UCrop.RESULT_ERROR) {
-                UCrop.getError(result.data!!)?.printStackTrace()
-            }
-        }
-
-        private val cropSelectedBannerImage =
-        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            if (result.resultCode == Activity.RESULT_OK && result.data != null) {
-                val cacheUri = UCrop.getOutput(result.data!!) ?: return@registerForActivityResult
-                lifecycleScope.launch {
-                    try {
-                        val oldUri = MmkvManager.decodeSettingsString(AppConfig.PREF_SELECTED_BANNER_URI)
-                        deleteOldFile(oldUri)
-                        val savedUri = saveBannerFile(cacheUri, "selected_banner_")
-                        MmkvManager.encodeSettings(AppConfig.PREF_SELECTED_BANNER_URI, savedUri.toString())
-                        SettingsManager.preloadBanner(requireContext(), savedUri.toString())
-                        updateIndicatorStyleEnabledState()
-                        broadcastSelectedBannerChanged()
-                        requireContext().toastSuccess(getString(R.string.selected_banner_updated))
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                    }
-                }
-            } else if (result.resultCode == UCrop.RESULT_ERROR) {
-                UCrop.getError(result.data!!)?.printStackTrace()
-            }
-        }
-
         override fun onCreatePreferences(bundle: Bundle?, s: String?) {
             preferenceManager.preferenceDataStore = MmkvPreferenceDataStore(triggersServiceRestart = false)
             addPreferencesFromResource(R.xml.pref_ui_settings)
-            SearchBarChipMode.current()
             initPreferenceSummaries()
-            updateCheckUpdateSummary()
 
-            navigateCheckUpdate?.setOnPreferenceClickListener {
-                startActivity(android.content.Intent(requireContext(), CheckUpdateActivity::class.java))
+            navigateUiHome?.setOnPreferenceClickListener {
+                startActivity(android.content.Intent(requireContext(), HomeSettingsActivity::class.java))
                 true
             }
 
-            navigateCheckUpdate?.onImageClick = {
-                pickThemeBannerImage.launch(
-                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                )
+            navigateUiBanner?.setOnPreferenceClickListener {
+                startActivity(android.content.Intent(requireContext(), BannerSettingsActivity::class.java))
+                true
             }
 
-            navigateCheckUpdate?.onImageLongClick = {
-                val savedUri = MmkvManager.decodeSettingsString(AppConfig.PREF_CUSTOM_THEME_BANNER_URI)
-                if (!savedUri.isNullOrEmpty()) {
-                    MaterialAlertDialogBuilder(requireContext())
-                    .setTitle(R.string.theme_banner_delete_title)
-                    .setIcon(RemixR.drawable.rmx_delete_bin_line)
-                    .setMessage(R.string.theme_banner_delete_summary)
-                    .setPositiveButton(android.R.string.ok) { _, _ ->
-                        lifecycleScope.launch {
-                            deleteOldFile(savedUri)
-                            MmkvManager.encodeSettings(AppConfig.PREF_CUSTOM_THEME_BANNER_URI, "")
-                            navigateCheckUpdate?.refresh()
-                            requireContext().snackbarSuccess(getString(R.string.theme_banner_delete_summary), title = getString(R.string.title_alerter_success))
-                        }
-                    }
-                    .setNegativeButton(android.R.string.cancel, null)
-                    .showBlur()
-                }
+            navigateUiAlerts?.setOnPreferenceClickListener {
+                startActivity(android.content.Intent(requireContext(), AlertSettingsActivity::class.java))
+                true
             }
 
             appTheme?.setOnPreferenceClickListener {
                 ThemeColorDialog.show(parentFragmentManager)
-                true
-            }
-
-            indicatorStyle?.setOnPreferenceClickListener {
-                IndicatorStyleBottomSheet(requireContext()) {
-                    SettingsChangeManager.makeRefreshDisplayPrefs()
-                }.show()
                 true
             }
 
@@ -538,7 +294,7 @@ class UiSettingsActivity : BaseActivity() {
                     dynamicColorBanner?.isChecked = false
                 }
 
-                dynamicColorBanner?.isEnabled = !enabled && disableHomeBanner?.isChecked == false
+                dynamicColorBanner?.isEnabled = !enabled && disableHomeBannerEnabled()
                 appTheme?.isEnabled = !enabled
 
                 SettingsChangeManager.requestRecreate()
@@ -572,12 +328,6 @@ class UiSettingsActivity : BaseActivity() {
                 }
             }
 
-            toolbarCenterSubtitleMode?.setOnPreferenceChangeListener { _, newValue ->
-                MmkvManager.encodeSettings(AppConfig.PREF_TOOLBAR_CENTER_SUBTITLE_MODE, newValue as Boolean)
-                SettingsChangeManager.notifyUiCustomizationChanged()
-                true
-            }
-
             enableBlur?.setOnPreferenceChangeListener { _, newValue ->
                 MmkvManager.encodeSettings(AppConfig.PREF_ENABLE_BLUR, newValue as Boolean)
                 true
@@ -596,14 +346,6 @@ class UiSettingsActivity : BaseActivity() {
                 SettingsChangeManager.notifyUiCustomizationChanged()
                 true
             }
-
-            fabExtended?.setOnPreferenceChangeListener { _, newValue ->
-                MmkvManager.encodeSettings(AppConfig.PREF_FAB_EXTENDED, newValue as Boolean)
-                SettingsChangeManager.notifyUiCustomizationChanged()
-                true
-            }
-
-            setupLanguagePreference()
 
             nightTheme?.setOnPreferenceChangeListener { pref, newValue ->
                 val valueStr = newValue.toString()
@@ -647,7 +389,6 @@ class UiSettingsActivity : BaseActivity() {
                     lp.summary = if (idx >= 0) lp.entries[idx] else valueStr
                 }
                 com.miku.ray.util.LauncherAliasSwitcher.applyNameVariant(requireContext().applicationContext, valueStr)
-                updateCheckUpdateSummary(valueStr)
                 true
             }
 
@@ -662,7 +403,6 @@ class UiSettingsActivity : BaseActivity() {
             }
             updateAppFontSummary()
             setupCustomFontPreferences()
-            setupCustomSoundPreferences()
 
             CategoryStyleHelper.applyToFragment(this)
             categoryStyle?.setOnPreferenceChangeListener { pref, newValue ->
@@ -684,113 +424,6 @@ class UiSettingsActivity : BaseActivity() {
                 MmkvManager.encodeSettings(AppConfig.PREF_SHOW_SPLASH, newValue as Boolean)
                 true
             }
-
-            searchBarChip?.apply {
-                value = SearchBarChipMode.current()
-                setOnPreferenceChangeListener { _, newValue ->
-                    val mode = SearchBarChipMode.save(newValue.toString())
-                    value = mode
-                    val selectedIndex = findIndexOfValue(mode)
-                    summary = if (selectedIndex >= 0) entries[selectedIndex] else mode
-                    if (mode == SearchBarChipMode.WEATHER || mode == SearchBarChipMode.DUAL_SWIPE) {
-                        val hasForegroundPermission = ContextCompat.checkSelfPermission(
-                            requireContext(), Manifest.permission.ACCESS_COARSE_LOCATION
-                        ) == PackageManager.PERMISSION_GRANTED
-                        val shouldRequestLocation = mode == SearchBarChipMode.DUAL_SWIPE ||
-                        (!hasForegroundPermission && !WeatherHelper.hasCustomLocation())
-                        if (!hasForegroundPermission && shouldRequestLocation) {
-                            locationPermissionLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
-                        } else {
-                            WeatherHelper.scheduleBackgroundUpdates(requireContext(), forceReschedule = true)
-                        }
-                    } else {
-                        WeatherHelper.cancelBackgroundUpdates(requireContext())
-                    }
-                    updateChipPreferenceEnabledState()
-                    when (mode) {
-                        SearchBarChipMode.WEATHER -> requireContext().snackbarDefault(R.string.pref_search_bar_chip_info_weather, title = getString(R.string.title_alerter_info))
-                        SearchBarChipMode.TOTAL_TRAFFIC -> requireContext().snackbarDefault(R.string.pref_search_bar_chip_info_traffic, title = getString(R.string.title_alerter_info))
-                        SearchBarChipMode.DUAL_SWIPE -> requireContext().snackbarDefault(R.string.pref_search_bar_chip_info_dual, title = getString(R.string.title_alerter_info))
-                    }
-                    true
-                }
-            }
-
-            weatherUnit?.setOnPreferenceChangeListener { pref, newValue ->
-                val valueStr = newValue.toString()
-                (pref as? ListPreference)?.let { lp ->
-                    val idx = lp.findIndexOfValue(valueStr)
-                    lp.summary = if (idx >= 0) lp.entries[idx] else valueStr
-                }
-                MmkvManager.encodeSettings(AppConfig.PREF_WEATHER_USE_CELSIUS, valueStr)
-                true
-            }
-
-            updateWeatherCustomLocationSummary(weatherCustomLocation?.text.orEmpty())
-            weatherCustomLocation?.setOnPreferenceChangeListener { _, newValue ->
-                val raw = (newValue as? String)?.trim().orEmpty()
-                MmkvManager.encodeSettings(AppConfig.PREF_WEATHER_CUSTOM_LOCATION, raw)
-                WeatherHelper.clearCustomLocationCache()
-                updateWeatherCustomLocationSummary(raw)
-                if (SearchBarChipMode.current() in setOf(
-                        SearchBarChipMode.WEATHER,
-                        SearchBarChipMode.DUAL_SWIPE
-                )) {
-                    WeatherHelper.scheduleBackgroundUpdates(requireContext(), forceReschedule = true)
-                }
-                true
-            }
-
-            updateChipPreferenceEnabledState()
-
-            updateShowIspInfoEnabledState()
-            showRealtimeTrafficIp?.setOnPreferenceChangeListener { _, newValue ->
-                val checked = newValue as Boolean
-                MmkvManager.encodeSettings(AppConfig.PREF_SHOW_REALTIME_TRAFFIC_IP, checked)
-                showIspInfo?.isEnabled = !checked
-                showIspInfo?.summary = if (checked) {
-                    getString(
-                        R.string.summary_pref_disabled_realtime_traffic_ip,
-                        getString(R.string.title_pref_show_realtime_traffic_ip)
-                    )
-                } else {
-                    getString(R.string.summary_pref_show_isp_info)
-                }
-                true
-            }
-
-            updateGroupAllTabIconSummary()
-            groupAllTabIcon?.setOnPreferenceClickListener {
-                val currentIcon = MmkvManager.decodeSettingsString(AppConfig.PREF_GROUP_ALL_TAB_ICON)
-                tabIconPickerDialog = TabIconPickerDialog(
-                    context      = requireContext(),
-                    currentIcon  = currentIcon,
-                    onSelected   = { iconName ->
-                        MmkvManager.encodeSettings(AppConfig.PREF_GROUP_ALL_TAB_ICON, iconName)
-                        SettingsChangeManager.makeSetupGroupTab()
-                        updateGroupAllTabIconSummary()
-                    }
-                ).show()
-                true
-            }
-
-            tabBadgeLimit?.setOnPreferenceChangeListener { pref, newValue ->
-                (pref as? ListPreference)?.let { lp ->
-                    val index = lp.findIndexOfValue(newValue as? String)
-                    if (index >= 0) {
-                        lp.summary = lp.entries?.getOrNull(index)
-                    }
-                }
-                SettingsChangeManager.makeSetupGroupTab()
-                true
-            }
-
-            setupProfilePreferences()
-            setupHomeBannerPreferences()
-            setupSheetBannerPreferences()
-            setupSelectedBannerPreferences()
-            setupParticlesPreferences()
-            updateSelectedBannerCategoryVisibility()
         }
 
         override fun onViewCreated(view: android.view.View, savedInstanceState: android.os.Bundle?) {
@@ -799,44 +432,48 @@ class UiSettingsActivity : BaseActivity() {
             applyEdgeToEdgeListInsets()
         }
 
-        private fun extractAndSaveBannerColor(uri: Uri) {
-            lifecycleScope.launch {
-                BannerColorExtractor.extractAndSave(requireContext(), uri) { colorChanged ->
-                    if (colorChanged && MmkvManager.decodeSettingsBool(AppConfig.PREF_DYNAMIC_COLOR_BANNER, false)) {
-                        SettingsChangeManager.requestRecreate()
-                    }
-                }
+        override fun onResume() {
+            super.onResume()
+            // Recomputed here rather than onStart: the home-banner-disable
+            // switch lives on the banners page and can flip while this screen
+            // is in the back stack.
+            val isDynamicColor = MmkvManager.decodeSettingsBool(AppConfig.PREF_DYNAMIC_COLOR, false)
+            val isDynamicBanner = MmkvManager.decodeSettingsBool(AppConfig.PREF_DYNAMIC_COLOR_BANNER, false)
+            val isDisableHomeBanner = MmkvManager.decodeSettingsBool(AppConfig.PREF_DISABLE_HOME_BANNER, false)
+
+            appTheme?.isEnabled = !isDynamicColor && !isDynamicBanner
+
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+                dynamicColor?.isEnabled = false
+                dynamicColor?.summary = requireContext().getString(R.string.summary_pref_dynamic_color_unavailable)
+                dynamicColorBanner?.isEnabled = false
+                dynamicColorBanner?.summary = requireContext().getString(R.string.summary_pref_dynamic_color_unavailable)
+            } else {
+                dynamicColor?.isEnabled = !isDynamicBanner
+                dynamicColorBanner?.isEnabled = !isDynamicColor && !isDisableHomeBanner
             }
+
+            val savedDpi = MmkvManager.decodeSettingsInt(AppConfig.PREF_CUSTOM_DPI, 0)
+            val systemDpi = Resources.getSystem().displayMetrics.densityDpi
+            val currentDpi = if (savedDpi > 0) savedDpi else systemDpi
+            val currentPercent = (currentDpi * 100f / systemDpi / 5f).roundToInt() * 5
+            customDpi?.summary = "$currentPercent%"
+
+            val savedFontSize = MmkvManager.decodeSettingsFloat(AppConfig.PREF_APP_FONT_SIZE, AppConfig.FONT_SIZE_DEFAULT)
+            fontSizeSlider?.summary = "${(savedFontSize * 100f).roundToInt()}%"
+
+            val savedRadius = MmkvManager.decodeSettingsInt(AppConfig.PREF_BLUR_RADIUS, AppConfig.DEFAULT_BLUR_RADIUS)
+            val savedRounds = MmkvManager.decodeSettingsInt(AppConfig.PREF_BLUR_ROUNDS, AppConfig.DEFAULT_BLUR_ROUNDS)
+            blurIntensity?.updateSummary(savedRadius, savedRounds)
+
+            val savedBottomRadius = MmkvManager.decodeSettingsFloat(AppConfig.PREF_BLUR_BOTTOM_RADIUS, AppConfig.DEFAULT_BLUR_BOTTOM_RADIUS)
+            val savedBottomAlpha = MmkvManager.decodeSettingsInt(AppConfig.PREF_BLUR_BOTTOM_ALPHA, AppConfig.DEFAULT_BLUR_BOTTOM_ALPHA)
+            blurBottomIntensity?.updateSummary(savedBottomRadius, savedBottomAlpha)
         }
 
-        private fun setupSheetBannerPreferences() {
-            findPreference<Preference>(AppConfig.PREF_ACTION_CHANGE_SHEET_BANNER)?.setOnPreferenceClickListener {
-                pickSheetBannerImage.launch(
-                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                )
-                true
-            }
-
-            findPreference<Preference>(AppConfig.PREF_ACTION_DELETE_SHEET_BANNER)?.setOnPreferenceClickListener {
-                val savedUri = MmkvManager.decodeSettingsString(AppConfig.PREF_CUSTOM_SHEET_BANNER_URI)
-                if (!savedUri.isNullOrEmpty()) {
-                    MaterialAlertDialogBuilder(requireContext())
-                    .setTitle(R.string.sheet_banner_delete_title)
-                    .setIcon(RemixR.drawable.rmx_delete_bin_line)
-                    .setMessage(R.string.sheet_banner_delete_summary)
-                    .setPositiveButton(android.R.string.ok) { _, _ ->
-                        lifecycleScope.launch {
-                            deleteOldFile(savedUri)
-                            MmkvManager.encodeSettings(AppConfig.PREF_CUSTOM_SHEET_BANNER_URI, "")
-                            requireContext().snackbarSuccess(getString(R.string.sheet_banner_delete_summary), title = getString(R.string.title_alerter_success))
-                        }
-                    }
-                    .setNegativeButton(android.R.string.cancel, null)
-                    .showBlur()
-                }
-                true
-            }
-        }
+        /** The dynamic-banner option also dies with the home banner (banners page). */
+        private fun disableHomeBannerEnabled(): Boolean =
+            MmkvManager.decodeSettingsBool(AppConfig.PREF_DISABLE_HOME_BANNER, false)
 
         private fun setupCustomFontPreferences() {
             updateCustomFontSummary()
@@ -918,537 +555,6 @@ class UiSettingsActivity : BaseActivity() {
             }
         }
 
-        private fun setupCustomSoundPreferences() {
-            updateCustomSoundSummaries()
-            customConnectSound?.setOnPreferenceClickListener {
-                pickCustomConnectSoundFile.launch(arrayOf("*/*"))
-                true
-            }
-            customDisconnectSound?.setOnPreferenceClickListener {
-                pickCustomDisconnectSoundFile.launch(arrayOf("*/*"))
-                true
-            }
-            deleteCustomSounds?.setOnPreferenceClickListener {
-                val hasCustomSound = listOf(
-                    AppConfig.PREF_CUSTOM_CONNECT_SOUND_URI,
-                    AppConfig.PREF_CUSTOM_DISCONNECT_SOUND_URI
-                ).any { !MmkvManager.decodeSettingsString(it).isNullOrBlank() }
-                if (!hasCustomSound) {
-                    requireContext().toastInfo(getString(R.string.custom_sound_none_to_remove))
-                    return@setOnPreferenceClickListener true
-                }
-                MaterialAlertDialogBuilder(requireContext())
-                .setTitle(R.string.title_pref_delete_custom_sounds)
-                .setMessage(R.string.custom_sound_delete_confirm)
-                .setPositiveButton(android.R.string.ok) { _, _ ->
-                    lifecycleScope.launch {
-                        deleteCustomSound(AppConfig.PREF_CUSTOM_CONNECT_SOUND_URI)
-                        deleteCustomSound(AppConfig.PREF_CUSTOM_DISCONNECT_SOUND_URI)
-                        updateCustomSoundSummaries()
-                        requireContext().snackbarSuccess(
-                            getString(R.string.custom_sounds_removed),
-                            title = getString(R.string.title_alerter_success)
-                        )
-                    }
-                }
-                .setNegativeButton(android.R.string.cancel, null)
-                .showBlur()
-                true
-            }
-        }
-
-        private fun updateCustomSoundSummaries() {
-            customConnectSound?.summary = customSoundSummary(AppConfig.PREF_CUSTOM_CONNECT_SOUND_URI)
-            customDisconnectSound?.summary = customSoundSummary(AppConfig.PREF_CUSTOM_DISCONNECT_SOUND_URI)
-            deleteCustomSounds?.isEnabled = listOf(
-                AppConfig.PREF_CUSTOM_CONNECT_SOUND_URI,
-                AppConfig.PREF_CUSTOM_DISCONNECT_SOUND_URI
-            ).any { !MmkvManager.decodeSettingsString(it).isNullOrBlank() }
-        }
-
-        private fun customSoundSummary(preferenceKey: String): String {
-            val uriString = MmkvManager.decodeSettingsString(preferenceKey).orEmpty()
-            return if (uriString.isBlank()) {
-                getString(R.string.summary_pref_custom_connect_sound)
-            } else {
-                File(Uri.parse(uriString).path.orEmpty()).name.ifBlank { uriString }
-            }
-        }
-
-        private fun saveCustomSound(sourceUri: Uri, preferenceKey: String, fileNamePrefix: String) {
-            lifecycleScope.launch {
-                val savedUri = withContext(Dispatchers.IO) {
-                    runCatching {
-                        val directory = File(requireContext().filesDir, "sounds").apply { mkdirs() }
-                        val name = queryDisplayName(sourceUri)?.replace(Regex("[^A-Za-z0-9._-]"), "_")
-                        ?.takeIf { it.isNotBlank() } ?: "sound.m4a"
-                        val extension = name.substringAfterLast('.', "m4a").lowercase()
-                        val destination = File(directory, "$fileNamePrefix${System.currentTimeMillis()}.$extension")
-                        requireContext().contentResolver.openInputStream(sourceUri)?.use { input ->
-                            destination.outputStream().use { output -> input.copyTo(output) }
-                        } ?: error("Unable to read audio")
-                        val savedUri = Uri.fromFile(destination)
-                        val mediaPlayer = MediaPlayer()
-                        try {
-                            mediaPlayer.setDataSource(requireContext(), savedUri)
-                            mediaPlayer.prepare()
-                        } catch (error: Exception) {
-                            destination.delete()
-                            throw error
-                        } finally {
-                            mediaPlayer.release()
-                        }
-                        savedUri
-                    }.getOrNull()
-                }
-                if (savedUri == null) {
-                    requireContext().toastError(getString(R.string.custom_sound_invalid))
-                } else {
-                    deleteCustomSound(preferenceKey)
-                    MmkvManager.encodeSettings(preferenceKey, savedUri.toString())
-                    updateCustomSoundSummaries()
-                    requireContext().toastSuccess(getString(R.string.custom_sound_added))
-                }
-            }
-        }
-
-        private suspend fun deleteCustomSound(preferenceKey: String) {
-            val oldUri = MmkvManager.decodeSettingsString(preferenceKey)
-            deleteOldFile(oldUri)
-            MmkvManager.encodeSettings(preferenceKey, "")
-        }
-
-        private fun setupSelectedBannerPreferences() {
-            updateIndicatorStyleEnabledState()
-
-            selectedBannerStyleEnabled?.apply {
-                isChecked = MmkvManager.decodeSettingsBool(AppConfig.PREF_SELECTED_BANNER_STYLE_ENABLED, false)
-                setOnPreferenceChangeListener { _, newValue ->
-                    val checked = newValue as Boolean
-                    MmkvManager.encodeSettings(AppConfig.PREF_SELECTED_BANNER_STYLE_ENABLED, checked)
-                    updateIndicatorStyleEnabledState()
-                    broadcastSelectedBannerChanged()
-                    true
-                }
-            }
-
-            findPreference<Preference>(AppConfig.PREF_ACTION_CHANGE_SELECTED_BANNER)?.setOnPreferenceClickListener {
-                pickSelectedBannerImage.launch(
-                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                )
-                true
-            }
-
-            findPreference<Preference>(AppConfig.PREF_ACTION_DELETE_SELECTED_BANNER)?.setOnPreferenceClickListener {
-                val savedUri = MmkvManager.decodeSettingsString(AppConfig.PREF_SELECTED_BANNER_URI)
-                if (!savedUri.isNullOrEmpty()) {
-                    MaterialAlertDialogBuilder(requireContext())
-                    .setTitle(R.string.selected_banner_delete_title)
-                    .setIcon(RemixR.drawable.rmx_delete_bin_line)
-                    .setMessage(R.string.selected_banner_delete_summary)
-                    .setPositiveButton(android.R.string.ok) { _, _ ->
-                        lifecycleScope.launch {
-                            deleteOldFile(savedUri)
-                            MmkvManager.encodeSettings(AppConfig.PREF_SELECTED_BANNER_URI, "")
-                            updateIndicatorStyleEnabledState()
-                            broadcastSelectedBannerChanged()
-                            requireContext().snackbarSuccess(getString(R.string.selected_banner_delete_summary), title = getString(R.string.title_alerter_success))
-                        }
-                    }
-                    .setNegativeButton(android.R.string.cancel, null)
-                    .showBlur()
-                }
-                true
-            }
-        }
-
-        private fun updateIndicatorStyleEnabledState() {
-            val bannerEnabled = MmkvManager.decodeSettingsBool(AppConfig.PREF_SELECTED_BANNER_STYLE_ENABLED, false)
-
-            indicatorStyle?.apply {
-                isEnabled = !bannerEnabled
-                summary = if (bannerEnabled) {
-                    getString(R.string.pref_indicator_style_summary_disabled_by_banner)
-                } else {
-                    getString(R.string.pref_indicator_style_summary)
-                }
-            }
-        }
-
-        private fun setupProfilePreferences() {
-            findPreference<EditTextPreference>(AppConfig.PREF_CUSTOM_PROFILE_NAME)?.apply {
-                val currentName = MmkvManager.decodeSettingsString(AppConfig.PREF_CUSTOM_PROFILE_NAME) ?: ""
-                text = currentName
-                summary = currentName.ifEmpty { getString(R.string.uwu_profile_banner_title) }
-                setOnBindEditTextListener { editText ->
-                    editText.inputType = EditorInfo.TYPE_CLASS_TEXT or EditorInfo.TYPE_TEXT_FLAG_CAP_WORDS
-                    editText.setSingleLine()
-                }
-                setOnPreferenceChangeListener { _, newValue ->
-                    val newName = newValue.toString()
-                    MmkvManager.encodeSettings(AppConfig.PREF_CUSTOM_PROFILE_NAME, newName)
-                    summary = newName.ifEmpty { getString(R.string.uwu_profile_banner_title) }
-                    true
-                }
-            }
-
-            findPreference<Preference>(AppConfig.PREF_ACTION_CHANGE_PROFILE_BANNER)?.setOnPreferenceClickListener {
-                pickProfileImage.launch(
-                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                )
-                true
-            }
-
-            findPreference<ListPreference>(AppConfig.PREF_PROFILE_BANNER_SHAPE)?.apply {
-                val savedShape = MmkvManager.decodeSettingsString(AppConfig.PREF_PROFILE_BANNER_SHAPE)
-                ?: AppConfig.PREF_PROFILE_BANNER_SHAPE_DEFAULT
-                value = savedShape
-                summary = "%s"
-                setOnPreferenceChangeListener { _, newValue ->
-                    MmkvManager.encodeSettings(AppConfig.PREF_PROFILE_BANNER_SHAPE, newValue.toString())
-                    broadcastProfileChanged()
-                    true
-                }
-            }
-
-            findPreference<Preference>(AppConfig.PREF_ACTION_DELETE_PROFILE_BANNER)?.setOnPreferenceClickListener {
-                val savedUri = MmkvManager.decodeSettingsString(AppConfig.PREF_PROFILE_BANNER_URI)
-                if (!savedUri.isNullOrEmpty()) {
-                    MaterialAlertDialogBuilder(requireContext())
-                    .setTitle(R.string.delete_custom_banner_profile)
-                    .setIcon(RemixR.drawable.rmx_delete_bin_line)
-                    .setMessage(R.string.delete_custom_banner_profile_summary)
-                    .setPositiveButton(android.R.string.ok) { _, _ ->
-                        lifecycleScope.launch {
-                            deleteOldFile(savedUri)
-                            MmkvManager.encodeSettings(AppConfig.PREF_PROFILE_BANNER_URI, "")
-                            broadcastProfileChanged()
-                            requireContext().snackbarSuccess(getString(R.string.delete_custom_banner_profile_summary), title = getString(R.string.title_alerter_success))
-                        }
-                    }
-                    .setNegativeButton(android.R.string.cancel, null)
-                    .showBlur()
-                }
-                true
-            }
-        }
-
-        private fun setupHomeBannerPreferences() {
-            disableHomeBanner?.apply {
-                isChecked = MmkvManager.decodeSettingsBool(AppConfig.PREF_DISABLE_HOME_BANNER, false)
-
-                bannerHeightSlider?.isEnabled = !isChecked
-                headerTopRowPaddingSlider?.isEnabled = !isChecked
-                changeHomeBannerImageAction?.isEnabled = !isChecked
-                deleteHomeBannerImageAction?.isEnabled = !isChecked
-
-                setOnPreferenceChangeListener { _, newValue ->
-                    val checked = newValue as Boolean
-                    MmkvManager.encodeSettings(AppConfig.PREF_DISABLE_HOME_BANNER, checked)
-
-                    val isDynamicColor = MmkvManager.decodeSettingsBool(AppConfig.PREF_DYNAMIC_COLOR, false)
-                    dynamicColorBanner?.isEnabled = !checked && !isDynamicColor
-
-                    bannerHeightSlider?.isEnabled = !checked
-                    headerTopRowPaddingSlider?.isEnabled = !checked
-                    changeHomeBannerImageAction?.isEnabled = !checked
-                    deleteHomeBannerImageAction?.isEnabled = !checked
-
-                    if (checked) {
-                        val isDynamicBannerActive = MmkvManager.decodeSettingsBool(AppConfig.PREF_DYNAMIC_COLOR_BANNER, false)
-                        if (isDynamicBannerActive) {
-                            MmkvManager.encodeSettings(AppConfig.PREF_DYNAMIC_COLOR_BANNER, false)
-                            dynamicColorBanner?.isChecked = false
-                            appTheme?.isEnabled = !isDynamicColor
-                            SettingsChangeManager.requestRecreate()
-                        }
-                    }
-
-                    broadcastHomeBannerChanged()
-                    true
-                }
-            }
-
-            findPreference<Preference>(AppConfig.PREF_ACTION_CHANGE_HOME_BANNER)?.setOnPreferenceClickListener {
-                pickHomeBannerImage.launch(
-                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                )
-                true
-            }
-
-            findPreference<Preference>(AppConfig.PREF_ACTION_DELETE_HOME_BANNER)?.setOnPreferenceClickListener {
-                val savedUri = MmkvManager.decodeSettingsString(AppConfig.PREF_CUSTOM_HOME_BANNER_URI)
-                if (!savedUri.isNullOrEmpty()) {
-                    MaterialAlertDialogBuilder(requireContext())
-                    .setTitle(R.string.home_banner_delete_title)
-                    .setIcon(RemixR.drawable.rmx_delete_bin_line)
-                    .setMessage(R.string.home_banner_delete_summary)
-                    .setPositiveButton(android.R.string.ok) { _, _ ->
-                        lifecycleScope.launch {
-                            deleteOldFile(savedUri)
-                            MmkvManager.encodeSettings(AppConfig.PREF_CUSTOM_HOME_BANNER_URI, "")
-                            MmkvManager.encodeSettings(AppConfig.PREF_BANNER_COLOR, 0)
-
-                            if (MmkvManager.decodeSettingsBool(AppConfig.PREF_DYNAMIC_COLOR_BANNER, false)) {
-                                SettingsChangeManager.requestRecreate()
-                            }
-                            broadcastHomeBannerChanged()
-                            requireContext().snackbarSuccess(getString(R.string.home_banner_delete_summary), title = getString(R.string.title_alerter_success))
-                        }
-                    }
-                    .setNegativeButton(android.R.string.cancel, null)
-                    .showBlur()
-                }
-                true
-            }
-        }
-
-        private fun setupLanguagePreference() {
-            val languageValues = resources.getStringArray(R.array.language_select_value)
-            val languageLabels = resources.getStringArray(R.array.language_select)
-
-            fun labelFor(tag: String): CharSequence {
-                val idx = languageValues.indexOf(tag)
-                return if (idx >= 0) languageLabels[idx] else tag
-            }
-
-            val currentTag = when (val tag = AppCompatDelegate.getApplicationLocales().toLanguageTags()) {
-                "id" -> "in"
-                else -> tag
-            }
-            val resolvedTag = if (currentTag in languageValues) currentTag else ""
-
-            appLanguage?.apply {
-                value = resolvedTag
-                summary = labelFor(resolvedTag)
-                setOnPreferenceChangeListener { _, newValue ->
-                    val newTag = newValue as String
-                    AppCompatDelegate.setApplicationLocales(
-                        if (newTag.isEmpty()) LocaleListCompat.getEmptyLocaleList()
-                        else LocaleListCompat.forLanguageTags(newTag)
-                    )
-                    requireContext().sendBroadcast(
-                        Intent(AppConfig.BROADCAST_ACTION_TRAFFIC_WIDGET_REFRESH)
-                        .setPackage(requireContext().packageName)
-                    )
-                    summary = labelFor(newTag)
-                    value = newTag
-                    true
-                }
-            }
-        }
-
-        private fun setupParticlesPreferences() {
-            fun applySettingsEnabled(enabled: Boolean) {
-                findPreference<Preference>(AppConfig.PREF_PARTICLES_SETTINGS)?.isEnabled = enabled
-            }
-
-            findPreference<SwitchPreferenceCompat>(AppConfig.PREF_ENABLE_PARTICLES_SHEET)?.apply {
-                isChecked = MmkvManager.decodeSettingsBool(AppConfig.PREF_ENABLE_PARTICLES_SHEET, false)
-                applySettingsEnabled(isChecked)
-                setOnPreferenceChangeListener { _, newValue ->
-                    val enabled = newValue as Boolean
-                    MmkvManager.encodeSettings(AppConfig.PREF_ENABLE_PARTICLES_SHEET, enabled)
-                    applySettingsEnabled(enabled)
-                    true
-                }
-            }
-        }
-
-        private fun startCropSheetBannerActivity(sourceUri: Uri) {
-            val destFile = File(requireContext().cacheDir, "cropped_sheet_banner_temp.jpg")
-            val destUri = Uri.fromFile(destFile)
-            val displayMetrics = resources.displayMetrics
-            val screenWidthPx = displayMetrics.widthPixels.toFloat()
-            val targetHeightPx = displayMetrics.density * 150
-
-            val uCrop = UCrop.of(sourceUri, destUri)
-            .withAspectRatio(screenWidthPx, targetHeightPx)
-            .withMaxResultSize(1920, 1080)
-
-            try {
-                uCrop.withOptions(UCrop.Options().apply {
-                        setDimmedLayerColor(Color.parseColor("#CC000000"))
-                        setCircleDimmedLayer(false)
-                        setShowCropGrid(true)
-                        setFreeStyleCropEnabled(false)
-                })
-            } catch (e: Exception) { e.printStackTrace() }
-            cropSheetBannerImage.launch(uCrop.getIntent(requireContext()))
-        }
-
-        private fun startCropThemeBannerActivity(sourceUri: Uri) {
-            val destFile = File(requireContext().cacheDir, "cropped_theme_banner_temp.jpg")
-            val destUri = Uri.fromFile(destFile)
-
-            val displayMetrics = resources.displayMetrics
-            val screenWidthPx = displayMetrics.widthPixels.toFloat()
-            val screenHeightPx = displayMetrics.heightPixels.toFloat()
-
-            val uCrop = UCrop.of(sourceUri, destUri)
-            .withAspectRatio(screenWidthPx, screenHeightPx)
-            .withMaxResultSize(896, 1984)
-
-            try {
-                uCrop.withOptions(UCrop.Options().apply {
-                        setDimmedLayerColor(Color.parseColor("#CC000000"))
-                        setCircleDimmedLayer(false)
-                        setShowCropGrid(true)
-                        setFreeStyleCropEnabled(true)
-                })
-            } catch (e: Exception) { e.printStackTrace() }
-            cropThemeBannerImage.launch(uCrop.getIntent(requireContext()))
-        }
-
-        private fun startCropSelectedBannerActivity(sourceUri: Uri) {
-            val destFile = File(requireContext().cacheDir, "cropped_selected_banner_temp.jpg")
-            val destUri = Uri.fromFile(destFile)
-
-            val displayMetrics = resources.displayMetrics
-            val screenWidthPx = displayMetrics.widthPixels.toFloat()
-            val targetHeightPx = displayMetrics.density * 120
-
-            val uCrop = UCrop.of(sourceUri, destUri)
-            .withAspectRatio(screenWidthPx, targetHeightPx)
-            .withMaxResultSize(1280, 720)
-
-            try {
-                uCrop.withOptions(UCrop.Options().apply {
-                        setDimmedLayerColor(Color.parseColor("#CC000000"))
-                        setCircleDimmedLayer(false)
-                        setShowCropGrid(true)
-                        setFreeStyleCropEnabled(false)
-                })
-            } catch (e: Exception) { e.printStackTrace() }
-            cropSelectedBannerImage.launch(uCrop.getIntent(requireContext()))
-        }
-
-        private fun startCropHomeBannerActivity(sourceUri: Uri) {
-            val destFile = File(requireContext().cacheDir, "cropped_home_banner_temp.jpg")
-            val destUri = Uri.fromFile(destFile)
-
-            val displayMetrics = resources.displayMetrics
-            val screenWidthPx = displayMetrics.widthPixels.toFloat()
-
-            val heightDp = MmkvManager.decodeSettingsInt(
-                AppConfig.PREF_HOME_BANNER_HEIGHT,
-                AppConfig.HOME_BANNER_HEIGHT_DEFAULT
-            )
-            val targetHeightPx = displayMetrics.density * heightDp
-
-            val uCrop = UCrop.of(sourceUri, destUri)
-            .withAspectRatio(screenWidthPx, targetHeightPx)
-            .withMaxResultSize(1920, 1080)
-
-            try {
-                uCrop.withOptions(UCrop.Options().apply {
-                        setDimmedLayerColor(Color.parseColor("#CC000000"))
-                        setCircleDimmedLayer(false)
-                        setShowCropGrid(true)
-                        setFreeStyleCropEnabled(false)
-                })
-            } catch (e: Exception) { e.printStackTrace() }
-
-            cropHomeBannerImage.launch(uCrop.getIntent(requireContext()))
-        }
-
-        private fun startCropProfileActivity(sourceUri: Uri) {
-            val destFile = File(requireContext().cacheDir, "cropped_profile_banner_temp.jpg")
-            val destUri = Uri.fromFile(destFile)
-            val uCrop = UCrop.of(sourceUri, destUri)
-            .withAspectRatio(1f, 1f)
-            .withMaxResultSize(512, 512)
-
-            try {
-                uCrop.withOptions(UCrop.Options().apply {
-                        setDimmedLayerColor(Color.parseColor("#CC000000"))
-                        setCircleDimmedLayer(true)
-                        setShowCropGrid(true)
-                        setFreeStyleCropEnabled(false)
-                })
-            } catch (e: Exception) { e.printStackTrace() }
-            cropProfileImage.launch(uCrop.getIntent(requireContext()))
-        }
-
-        private fun isGif(uri: Uri): Boolean {
-            val mimeType = requireContext().contentResolver.getType(uri)
-            if (mimeType == "image/gif") return true
-            val path = uri.path ?: return false
-            return path.lowercase().endsWith(".gif")
-        }
-
-        private fun saveGifBannerDirectly(
-            sourceUri: Uri,
-            prefKey: String,
-            fileNamePrefix: String,
-            onSuccess: (Uri) -> Unit
-        ) {
-            lifecycleScope.launch {
-                try {
-                    val oldUri = MmkvManager.decodeSettingsString(prefKey)
-                    deleteOldFile(oldUri)
-                    val savedUri = saveBannerFile(sourceUri, fileNamePrefix, ext = "gif")
-                    MmkvManager.encodeSettings(prefKey, savedUri.toString())
-                    SettingsManager.preloadBanner(requireContext(), savedUri.toString())
-                    onSuccess(savedUri)
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-            }
-        }
-
-        @Throws(IOException::class)
-        private suspend fun saveBannerFile(sourceUri: Uri, fileNamePrefix: String, ext: String = "jpg"): Uri = withContext(Dispatchers.IO) {
-            val ctx = requireContext()
-            val bannersDir = File(ctx.filesDir, "banners").apply { mkdirs() }
-            val destFile = File(bannersDir, "${fileNamePrefix}${System.currentTimeMillis()}.$ext")
-            ctx.contentResolver.openInputStream(sourceUri)?.use { input ->
-                destFile.outputStream().use { output -> input.copyTo(output) }
-            }
-            try {
-                if (sourceUri.scheme == "file") {
-                    val tempFile = File(sourceUri.path!!)
-                    if (tempFile.exists() && tempFile.absolutePath.contains(ctx.cacheDir.absolutePath)) {
-                        tempFile.delete()
-                    }
-                }
-            } catch (_: Exception) {}
-            return@withContext Uri.fromFile(destFile)
-        }
-
-        private suspend fun deleteOldFile(uriString: String?) = withContext(Dispatchers.IO) {
-            if (uriString.isNullOrEmpty()) return@withContext
-            try {
-                val uri = Uri.parse(uriString)
-                if (uri.scheme == "file") {
-                    File(uri.path!!).takeIf { it.exists() }?.delete()
-                } else {
-                    try { requireContext().contentResolver.delete(uri, null, null) } catch (_: Exception) {}
-                }
-            } catch (_: Exception) {}
-        }
-
-        private fun broadcastProfileChanged() {
-            SettingsChangeManager.notifyUiCustomizationChanged()
-        }
-
-        private fun broadcastHomeBannerChanged() {
-            SettingsChangeManager.notifyUiCustomizationChanged()
-        }
-
-        private fun broadcastSelectedBannerChanged() {
-            com.miku.ray.util.SelectedProfileBannerController.notifyChanged(requireContext())
-        }
-
-        private fun updateCheckUpdateSummary(pendingVariant: String? = null) {
-            val appName = if (pendingVariant != null) {
-                AppNameHelper.getDisplayName(requireContext(), pendingVariant)
-            } else {
-                AppNameHelper.getDisplayName(requireContext())
-            }
-            navigateCheckUpdate?.summary = getString(R.string.uwu_update_summary, appName)
-        }
-
         private fun initPreferenceSummaries() {
             appIcon?.refreshSummary()
             fun traverse(group: androidx.preference.PreferenceGroup) {
@@ -1474,54 +580,6 @@ class UiSettingsActivity : BaseActivity() {
             preferenceScreen?.let { traverse(it) }
         }
 
-        override fun onStart() {
-            super.onStart()
-            val isDynamicColor = MmkvManager.decodeSettingsBool(AppConfig.PREF_DYNAMIC_COLOR, false)
-            val isDynamicBanner = MmkvManager.decodeSettingsBool(AppConfig.PREF_DYNAMIC_COLOR_BANNER, false)
-            val isDisableHomeBanner = MmkvManager.decodeSettingsBool(AppConfig.PREF_DISABLE_HOME_BANNER, false)
-
-            appTheme?.isEnabled = !isDynamicColor && !isDynamicBanner
-
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-                dynamicColor?.isEnabled = false
-                dynamicColor?.summary = requireContext().getString(R.string.summary_pref_dynamic_color_unavailable)
-                dynamicColorBanner?.isEnabled = false
-                dynamicColorBanner?.summary = requireContext().getString(R.string.summary_pref_dynamic_color_unavailable)
-            } else {
-                dynamicColor?.isEnabled = !isDynamicBanner
-                dynamicColorBanner?.isEnabled = !isDynamicColor && !isDisableHomeBanner
-            }
-
-            bannerHeightSlider?.isEnabled = !isDisableHomeBanner
-            headerTopRowPaddingSlider?.isEnabled = !isDisableHomeBanner
-            changeHomeBannerImageAction?.isEnabled = !isDisableHomeBanner
-            deleteHomeBannerImageAction?.isEnabled = !isDisableHomeBanner
-
-            val savedDpi = MmkvManager.decodeSettingsInt(AppConfig.PREF_CUSTOM_DPI, 0)
-            val systemDpi = Resources.getSystem().displayMetrics.densityDpi
-            val currentDpi = if (savedDpi > 0) savedDpi else systemDpi
-            val currentPercent = (currentDpi * 100f / systemDpi / 5f).roundToInt() * 5
-            customDpi?.summary = "$currentPercent%"
-
-            val savedFontSize = MmkvManager.decodeSettingsFloat(AppConfig.PREF_APP_FONT_SIZE, AppConfig.FONT_SIZE_DEFAULT)
-            fontSizeSlider?.summary = "${(savedFontSize * 100f).roundToInt()}%"
-
-            val savedRadius = MmkvManager.decodeSettingsInt(AppConfig.PREF_BLUR_RADIUS, AppConfig.DEFAULT_BLUR_RADIUS)
-            val savedRounds = MmkvManager.decodeSettingsInt(AppConfig.PREF_BLUR_ROUNDS, AppConfig.DEFAULT_BLUR_ROUNDS)
-            blurIntensity?.updateSummary(savedRadius, savedRounds)
-
-            val savedBottomRadius = MmkvManager.decodeSettingsFloat(AppConfig.PREF_BLUR_BOTTOM_RADIUS, AppConfig.DEFAULT_BLUR_BOTTOM_RADIUS)
-            val savedBottomAlpha = MmkvManager.decodeSettingsInt(AppConfig.PREF_BLUR_BOTTOM_ALPHA, AppConfig.DEFAULT_BLUR_BOTTOM_ALPHA)
-            blurBottomIntensity?.updateSummary(savedBottomRadius, savedBottomAlpha)
-
-            updateSelectedBannerCategoryVisibility()
-        }
-
-        private fun updateSelectedBannerCategoryVisibility() {
-            val isGridMode = MmkvManager.decodeSettingsBool(AppConfig.PREF_DOUBLE_COLUMN_DISPLAY, false)
-            selectedBannerCategory?.isVisible = !isGridMode
-        }
-
         private fun updateTrueBlackState(isNight: Boolean) {
             trueBlack?.isEnabled = isNight
             trueBlack?.summary = if (!isNight) getString(R.string.pref_true_black_only_in_night_mode)
@@ -1537,68 +595,6 @@ class UiSettingsActivity : BaseActivity() {
             2    -> false
             3    -> !ThemeManager.isAutoDayTime()
             else -> ThemeManager.isDarkMode(requireActivity())
-        }
-
-        private fun updateGroupAllTabIconSummary() {
-            val iconName = MmkvManager.decodeSettingsString(AppConfig.PREF_GROUP_ALL_TAB_ICON)
-            if (iconName.isNullOrEmpty()) {
-                groupAllTabIcon?.summary = getString(R.string.sub_tab_icon_none)
-                groupAllTabIcon?.setIcon(RemixR.drawable.rmx_apps_line)
-            } else {
-                groupAllTabIcon?.summary = TabIconPickerAdapter.labelFor(iconName)
-                val resId = resources.getIdentifier(iconName, "drawable", requireContext().packageName)
-                if (resId != 0) groupAllTabIcon?.setIcon(resId)
-            }
-        }
-
-        private fun updateWeatherSubPrefsEnabled(weatherOn: Boolean) {
-            weatherUnit?.isEnabled = weatherOn
-            weatherCustomLocation?.isEnabled = weatherOn
-        }
-
-        private fun updateWeatherCustomLocationSummary(raw: String) {
-            val pref = weatherCustomLocation ?: return
-            pref.summary = if (raw.isNotBlank()) {
-                raw
-            } else {
-                val entry = WeatherHelper.getCachedWeatherEntry()
-                if (entry != null && (entry.latitude != 0.0 || entry.longitude != 0.0)) {
-                    getString(
-                        R.string.pref_weather_custom_location_summary_current_coords,
-                        entry.latitude, entry.longitude
-                    )
-                } else {
-                    getString(R.string.pref_weather_custom_location_summary_auto)
-                }
-            }
-        }
-
-        private fun updateChipPreferenceEnabledState() {
-            val mode = SearchBarChipMode.current()
-            searchBarChip?.value = mode
-            searchChipGradient?.isEnabled = mode != SearchBarChipMode.DISABLED
-            updateWeatherSubPrefsEnabled(
-                mode == SearchBarChipMode.WEATHER || mode == SearchBarChipMode.DUAL_SWIPE
-            )
-        }
-
-        private fun updateShowIspInfoEnabledState() {
-            val realtimeTrafficOn = showRealtimeTrafficIp?.isChecked == true
-            showIspInfo?.isEnabled = !realtimeTrafficOn
-            showIspInfo?.summary = if (realtimeTrafficOn) {
-                getString(
-                    R.string.summary_pref_disabled_realtime_traffic_ip,
-                    getString(R.string.title_pref_show_realtime_traffic_ip)
-                )
-            } else {
-                getString(R.string.summary_pref_show_isp_info)
-            }
-        }
-
-        override fun onDestroyView() {
-            tabIconPickerDialog?.dismiss()
-            tabIconPickerDialog = null
-            super.onDestroyView()
         }
     }
 }

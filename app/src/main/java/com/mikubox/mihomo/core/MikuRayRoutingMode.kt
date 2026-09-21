@@ -37,7 +37,7 @@ object MikuRayRoutingMode : MikuRouting.Impl {
         val profile = MihomoProfileStore.selected(context)
         val config = profile?.config.orEmpty()
         val live = profile != null && profile.id == activeProfileId && com.miku.ray.MikuCoreBridge.isRunning()
-        val options = if (live) RoutingMode.globalExitOptions().map { MikuRouting.Exit(it.name, it.isGroup) }
+        val options = if (live) RoutingMode.globalExitOptions().map { MikuRouting.Exit(it.name, it.isGroup, it.delay, it.type) }
             .also { saveCache(profile.id, config, it) } else {
             val cached = runCatching { JSONObject(prefs(context).getString("cache:${profile?.id}", "{}")!!) }.getOrDefault(JSONObject())
             // Provider nodes are usable offline only when discovered for this exact config.

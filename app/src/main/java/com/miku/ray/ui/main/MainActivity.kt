@@ -451,19 +451,27 @@ ShareConfigBottomSheet.OnShareOptionClickListener {
 
             val bottomStatus = view.findViewById<View>(R.id.blur_bottom_status)
             val quickActions = view.findViewById<View>(R.id.layout_quick_actions)
+            val routingMode = view.findViewById<View>(R.id.routing_mode)
+            val routingBaseMargin = (routingMode?.layoutParams as? ViewGroup.MarginLayoutParams)?.bottomMargin ?: 0
 
             val baseMarginBottom = (16 * resources.displayMetrics.density).toInt() + systemBars.bottom
             val statusGap = resources.getDimensionPixelSize(R.dimen.padding_spacing_dp8)
 
             fun applyBottomStatusMargin() {
+                val shifted = quickActionsEnabled && quickActions?.isVisible == true
                 val bottomStatusParams = bottomStatus?.layoutParams as? ViewGroup.MarginLayoutParams
                 bottomStatusParams?.let {
-                    it.bottomMargin = if (quickActionsEnabled && quickActions?.isVisible == true) {
-                        baseMarginBottom + quickActions.height + statusGap
-                    } else {
-                        baseMarginBottom
-                    }
+                    it.bottomMargin = if (shifted) baseMarginBottom + quickActions.height + statusGap else baseMarginBottom
                     bottomStatus.layoutParams = it
+                }
+                // The routing bar rides above the status strip; when the quick
+                // actions row pushes the strip up, the bar moves with it or the
+                // row covers its lower clickable half.
+                routingMode?.let { bar ->
+                    (bar.layoutParams as? ViewGroup.MarginLayoutParams)?.let {
+                        it.bottomMargin = routingBaseMargin + if (shifted) quickActions.height + statusGap else 0
+                        bar.layoutParams = it
+                    }
                 }
             }
 

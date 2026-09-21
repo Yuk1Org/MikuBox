@@ -6,18 +6,12 @@ import android.animation.ValueAnimator
 import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.Typeface
-import android.graphics.Color
-import android.graphics.drawable.InsetDrawable
-import androidx.core.graphics.drawable.toDrawable
-import android.graphics.drawable.RippleDrawable
 import android.graphics.drawable.GradientDrawable
 import android.util.AttributeSet
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.view.animation.AccelerateDecelerateInterpolator
-import android.widget.ArrayAdapter
-import android.widget.CheckedTextView
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -192,54 +186,33 @@ class RoutingModeView @JvmOverloads constructor(context: Context, attrs: Attribu
         render(current)
         if (current.options.isEmpty()) { failure(); return }
         picker?.dismiss()
-        val entries = current.options.map { option ->
-            context.getString(if (option.group) R.string.mihomo_exit_group else R.string.mihomo_exit_node, option.name)
-        }.toTypedArray()
         // Resolve from the host page: the dialog overlay can supply different
         // default list/checkmark colours, especially for custom/dynamic themes.
         val host = context.getActivity() ?: context
-        val accent = host.getColorAttr(androidx.appcompat.R.attr.colorPrimary)
         val foreground = host.getColorAttr(com.google.android.material.R.attr.colorOnSurface)
-        val selectedFill = accent
-        val selectedText = host.getColorAttr(com.google.android.material.R.attr.colorOnPrimary)
-        val checkedStates = arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf())
-        val adapter = object : ArrayAdapter<String>(host, com.google.android.material.R.layout.mtrl_alert_select_dialog_singlechoice, entries) {
-            override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
-                return (super.getView(position, convertView, parent) as CheckedTextView).apply {
-                    minimumHeight = dp(60)
-                    setTextColor(ColorStateList(checkedStates, intArrayOf(selectedText, foreground)))
-                    val choiceColors = ColorStateList(checkedStates, intArrayOf(selectedText,
-                        host.getColorAttr(com.google.android.material.R.attr.colorOnSurfaceVariant)))
-                    checkMarkTintList = choiceColors
-                    androidx.core.widget.TextViewCompat.setCompoundDrawableTintList(this, choiceColors)
-                    background = RippleDrawable(
-                        ColorStateList.valueOf(androidx.core.graphics.ColorUtils.setAlphaComponent(accent, 31)),
-                        android.graphics.drawable.StateListDrawable().apply {
-                            addState(checkedStates[0], InsetDrawable(shape(selectedFill, 20), dp(24), 0, dp(24), 0))
-                            addState(checkedStates[1], Color.TRANSPARENT.toDrawable())
-                        },
-                        Color.WHITE.toDrawable(),
-                    )
-                }
-            }
-        }
         val dialogBackground = com.google.android.material.shape.MaterialShapeDrawable(
             com.google.android.material.shape.ShapeAppearanceModel.builder()
                 .setAllCornerSizes(dp(28).toFloat()).build(),
         ).apply { fillColor = ColorStateList.valueOf(host.getColorAttr("colorCard")) }
+        val panel = ExitPickerPanel(
+            host,
+            current,
+            ExitRegion.measuredRegions(),
+        ) { option ->
+            if (MikuRouting.impl?.exit(option.name) == true) {
+                selectionVersion++
+                onSelectionChanged?.invoke()
+                MikuRouting.impl?.state()?.let(::render)
+                picker?.dismiss()
+            } else failure()
+        }
         picker = MaterialAlertDialogBuilder(host)
             .setBackground(dialogBackground)
             .setBackgroundInsetTop(0)
             .setBackgroundInsetBottom(0)
             .setTitle(R.string.mihomo_choose_exit)
-            .setSingleChoiceItems(adapter, current.options.indexOfFirst { it.name == current.exit }) { dialog, which ->
-                if (MikuRouting.impl?.exit(current.options[which].name) == true) {
-                    selectionVersion++
-                    onSelectionChanged?.invoke()
-                    MikuRouting.impl?.state()?.let(::render)
-                    dialog.dismiss()
-                } else failure()
-            }.setNegativeButton(android.R.string.cancel, null).showBlur().also { dialog ->
+            .setView(panel)
+            .setNegativeButton(android.R.string.cancel, null).showBlur().also { dialog ->
                 // Measure the complete dialog with a height ceiling. A fixed
                 // window height leaves empty space below short lists because
                 // AlertDialog's panels wrap their content independently.

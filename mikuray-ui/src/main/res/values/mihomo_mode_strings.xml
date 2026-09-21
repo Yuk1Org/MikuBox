@@ -4,8 +4,13 @@
     <string name="mihomo_mode_direct">Direct</string>
     <string name="mihomo_global_exit">Global exit: %1$s</string>
     <string name="mihomo_choose_exit">Choose a proxy group or node</string>
-    <string name="mihomo_exit_group">Group · %1$s</string>
-    <string name="mihomo_exit_node">Node · %1$s</string>
+    <string name="mihomo_exit_search">Search proxies</string>
+    <string name="mihomo_exit_filter_all">All</string>
+    <string name="mihomo_exit_filter_groups">Groups</string>
+    <string name="mihomo_exit_filter_nodes">Nodes</string>
+    <string name="mihomo_exit_section_groups">Proxy groups</string>
+    <string name="mihomo_exit_section_nodes">Nodes</string>
+    <string name="mihomo_exit_empty">No matches</string>
     <string name="mihomo_mode_failed">Unable to apply selection. Check the active profile.</string>
     <string name="mihomo_mode_selected">Selected</string>
     <string name="mihomo_select_exit">Select proxy</string>

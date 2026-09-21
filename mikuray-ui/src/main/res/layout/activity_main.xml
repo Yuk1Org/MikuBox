@@ -509,13 +509,13 @@
             android:contentDescription="@string/title_real_ping_all_server"
             android:insetBottom="0dp"
             android:insetTop="0dp"
-            app:backgroundTint="?attr/colorErrorContainer"
+            app:backgroundTint="?attr/colorSurfaceContainerHighest"
             app:cornerRadius="16dp"
             app:icon="@drawable/rmx_speed_line"
             app:iconGravity="textStart"
             app:iconPadding="0dp"
             app:iconSize="24dp"
-            app:iconTint="?attr/colorOnErrorContainer" />
+            app:iconTint="?attr/colorOnSurface" />
 
     </LinearLayout>
 

@@ -74,7 +74,7 @@
 
 
      <Preference
-        android:icon="@drawable/rmx_design_tools_line"
+        android:icon="@drawable/rmx_system_settings_2_line"
         android:key="pref_navigate_advanced_settings"
         android:summary="@string/mihomo_preview_advanced"
         android:title="@string/title_advanced"

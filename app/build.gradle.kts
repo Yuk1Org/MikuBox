@@ -32,14 +32,14 @@ fun secret(name: String): String? =
         ?: System.getenv(name)?.takeIf { it.isNotBlank() }
 
 android {
-    namespace = "top.uwu.mikubox"
+    namespace = "com.mikubox.mihomo"
     compileSdk = 36
     buildToolsVersion = "36.1.0"
     ndkVersion = "29.0.13599879"
 
     defaultConfig {
-        testInstrumentationRunner = "top.uwu.mikubox.RuntimeSmokeInstrumentation"
-        applicationId = "top.uwu.mikubox"
+        testInstrumentationRunner = "com.mikubox.mihomo.RuntimeSmokeInstrumentation"
+        applicationId = "com.mikubox.mihomo"
         minSdk = 24
         targetSdk = 36
         // Release workflows override both with the pushed tag (and the CI run
@@ -53,7 +53,7 @@ android {
         // build script, so the vendored layouts expect the names to exist.
         val bannerVersionName = versionName ?: "UwU-1.0.0"
         resValue("string", "uwu_version_name", bannerVersionName)
-        resValue("string", "uwu_package_name", "top.uwu.mikubox")
+        resValue("string", "uwu_package_name", "com.mikubox.mihomo")
         resValue("string", "uwu_build_date", LocalDate.now().toString())
 
         externalNativeBuild {

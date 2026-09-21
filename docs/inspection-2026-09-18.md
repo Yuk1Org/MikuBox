@@ -28,7 +28,7 @@ cd core/mihomo-bridge
 go test -tags 'with_gvisor cmfa' ./...
 ```
 
-测试入口：`app/src/test/java/top/uwu/mikubox/RegressionTest.kt`。
+测试入口：`app/src/test/java/com/mikubox/mihomo/RegressionTest.kt`。
 
 结果：
 

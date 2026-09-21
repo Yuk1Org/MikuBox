@@ -2,6 +2,7 @@ package com.mikubox.mihomo.core
 
 import android.content.Context
 import com.miku.ray.MikuRouting
+import com.miku.ray.util.LogUtil
 import org.json.JSONArray
 import org.json.JSONObject
 import org.yaml.snakeyaml.Yaml
@@ -83,7 +84,7 @@ object MikuRayRoutingMode : MikuRouting.Impl {
         if (!RoutingMode.selectGlobalExit(name)) {
             // Removed/changed provider nodes must not leave a stale apparent selection.
             prefs(context).edit().remove("exit:$profileId").apply()
-            android.util.Log.w("MikuBox", "Saved global exit is no longer available: $name")
+            LogUtil.w(message = "Saved global exit is no longer available: $name")
         }
     }
 }

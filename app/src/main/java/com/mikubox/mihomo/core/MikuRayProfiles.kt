@@ -1,6 +1,7 @@
 package com.mikubox.mihomo.core
 
 import com.miku.ray.MikuProfiles
+import com.miku.ray.util.LogUtil
 import com.mikubox.mihomo.profile.MihomoProfileStore
 import com.mikubox.mihomo.profile.MihomoSubscriptionDecoder
 import com.mikubox.mihomo.profile.MihomoSubscriptionUpdater
@@ -54,7 +55,7 @@ object MikuRayProfiles : MikuProfiles.Impl {
     }
     override fun sync() {
         runCatching { MikuRayProfileSync.sync(context) }
-            .onFailure { android.util.Log.w("MikuBox", "Profile mirror unavailable", it) }
+            .onFailure { LogUtil.w(message = "Profile mirror unavailable", throwable = it) }
     }
     override fun exportBackup(): String = BackupManager.export(context)
     override fun validateBackup(content: String) = BackupManager.validate(context, content)

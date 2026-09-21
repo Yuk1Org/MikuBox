@@ -1,9 +1,9 @@
 package com.mikubox.mihomo.core
 
 import android.content.Context
-import android.util.Log
 import org.json.JSONArray
 import org.json.JSONObject
+import com.miku.ray.util.LogUtil
 import com.mikubox.mihomo.R
 import java.io.File
 
@@ -11,8 +11,6 @@ import java.io.File
 object MihomoCore {
 
     const val NO_TUN = -1
-
-    private const val TAG = "MikuBox"
 
     data class Traffic(
         val uploadPerSecond: Long,
@@ -105,7 +103,7 @@ object MihomoCore {
         ensureGeodata(context, home)
         if (nativeStart(config, home.absolutePath, tunFd, dnsOverride, overridesJson) != 0) {
             val detail = nativeLastError().ifBlank { context.getString(R.string.mihomo_start_failed) }
-            Log.e(TAG, "core start failed: $detail")
+            LogUtil.e(message = "core start failed: $detail")
             error(detail)
         }
     }
@@ -284,7 +282,7 @@ object MihomoCore {
     } catch (error: Throwable) {
         // A snapshot the app cannot read must not take the screen down, but it
         // has to be visible: swallowing this once hid a missing JNI symbol.
-        Log.w(TAG, "connection list unavailable", error)
+        LogUtil.w(message = "connection list unavailable", throwable = error)
         emptyList()
     }
 

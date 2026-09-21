@@ -8,9 +8,9 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.IBinder
-import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
+import com.miku.ray.util.LogUtil
 import com.mikubox.mihomo.R
 import com.mikubox.mihomo.core.MihomoConfigStore
 import com.mikubox.mihomo.core.MihomoCore
@@ -53,7 +53,7 @@ class MikuProxyService : Service() {
                         MihomoCoreSettings.overridesJson(this, profileId = profile?.id),
                     ) }
                     if (result.isFailure) {
-                        Log.e(TAG, "proxy start failed: ${result.exceptionOrNull()?.message.orEmpty()}")
+                        LogUtil.e(message = "proxy start failed: ${result.exceptionOrNull()?.message.orEmpty()}")
                         mainHandler.post { if (generation.get() == request) stopProxy() }
                         return@execute
                     }
@@ -67,7 +67,7 @@ class MikuProxyService : Service() {
                         running = true
                     }
                 } catch (error: Exception) {
-                    Log.e(TAG, "proxy start failed", error)
+                    LogUtil.e(message = "proxy start failed", throwable = error)
                     mainHandler.post { if (generation.get() == request) stopProxy() }
                 }
             }
@@ -114,7 +114,6 @@ class MikuProxyService : Service() {
     companion object {
         private const val ACTION_STOP = "STOP_PROXY"
         private const val NOTIFICATION_ID = 3
-        private const val TAG = "MikuBox"
 
         private fun stopAction(packageName: String) = "$packageName.action.$ACTION_STOP"
 

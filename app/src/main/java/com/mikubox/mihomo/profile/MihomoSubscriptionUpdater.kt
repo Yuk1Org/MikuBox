@@ -14,6 +14,7 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import com.miku.ray.util.LogUtil
 import com.mikubox.mihomo.R
 import com.mikubox.mihomo.core.CoreOverrides
 import com.mikubox.mihomo.core.MihomoCore
@@ -58,7 +59,7 @@ object MihomoSubscriptionUpdater {
             val request = PeriodicWorkRequestBuilder<UpdateWorker>(interval, TimeUnit.MINUTES).build()
             manager.enqueueUniquePeriodicWork(WORK_NAME, ExistingPeriodicWorkPolicy.UPDATE, request)
         }.onFailure { error ->
-            android.util.Log.w("MikuBox", "subscription updates not scheduled: ${error.message}")
+            LogUtil.w(message = "subscription updates not scheduled: ${error.message}")
         }
     }
 

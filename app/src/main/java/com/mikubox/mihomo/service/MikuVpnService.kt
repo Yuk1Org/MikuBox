@@ -14,11 +14,11 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.ParcelFileDescriptor
-import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.miku.ray.contracts.ServiceControl
 import com.miku.ray.core.CoreServiceManager
 import com.miku.ray.handler.TrafficController
+import com.miku.ray.util.LogUtil
 import com.mikubox.mihomo.R
 import com.mikubox.mihomo.core.MihomoConfigStore
 import com.mikubox.mihomo.core.CoreOverrides
@@ -54,6 +54,16 @@ class MikuVpnService : VpnService(), ServiceControl {
     private val startExecutor = CoreServiceRuntime.executor
     private val generation = java.util.concurrent.atomic.AtomicInteger()
     private var starting = false
+
+    /**
+     * Set for the whole teardown, cleared when the next start begins. Stop
+     * reaches this service twice — the caller and then onDestroy through
+     * stopSelf — and the second pass must not repeat it: it would double the
+     * traffic controller's shutdown, advance the generation under the queued
+     * core-stop task and churn the connection status again.
+     */
+    @Volatile
+    private var stopping = false
 
     /**
      * Set while a start request is outstanding; cleared when one begins or when
@@ -131,7 +141,6 @@ class MikuVpnService : VpnService(), ServiceControl {
             vpnAction(packageName, ACTION_STOP) -> {
                 startRequested = false
                 startReplayQueued = false
-                Log.i(TAG, "stop requested")
                 stopVpn()
                 return START_NOT_STICKY
             }
@@ -173,7 +182,7 @@ class MikuVpnService : VpnService(), ServiceControl {
             // or a teardown that was asked for a moment ago is queued behind it.
             // Replay the request after that queue drained instead of dropping it.
             if (startRequested && !startReplayQueued) {
-                Log.i(TAG, "start deferred, tunnel still registered (running=$running)")
+                LogUtil.i(message = "start deferred, tunnel still registered (running=$running)")
                 startReplayQueued = true
                 startExecutor.execute {
                     checkpointHandler.post {
@@ -186,6 +195,7 @@ class MikuVpnService : VpnService(), ServiceControl {
         }
         startRequested = false
         starting = true
+        stopping = false
         ConnectionStatus.update(this, ConnectionStatus.Phase.CONNECTING)
         val request = generation.incrementAndGet()
         MikuProxyService.stop(this)
@@ -230,8 +240,8 @@ class MikuVpnService : VpnService(), ServiceControl {
                 if (startResult.isFailure) {
                     val failure = startResult.exceptionOrNull()
                     // The message alone is not enough to place a Kotlin failure;
-                    // keep the trace in logcat for the diagnostics export.
-                    runCatching { Log.e(TAG, "core start threw", failure) }
+                    // keep the trace in the log for the diagnostics export.
+                    runCatching { failure?.let { LogUtil.e(message = "core start threw", throwable = it) } }
                     reportStartFailure(failure?.message.orEmpty())
                     checkpointHandler.post { if (generation.get() == request) stopVpn() }
                     return@execute
@@ -254,8 +264,8 @@ class MikuVpnService : VpnService(), ServiceControl {
                     // reach it come from the ported screens, so the line is what
                     // tells a switch apart from a switch that does nothing.
                     val address = AndroidVpnSettings.interfaceAddress(this@MikuVpnService)
-                    Log.i(
-                        TAG,
+                    LogUtil.i(
+                        message =
                         "tunnel up (fd=$fd, mtu=${AndroidVpnSettings.mtu(this@MikuVpnService)}" +
                             ", addr=${address.ipv4Client}" +
                             ", dns=${AndroidVpnSettings.tunDnsServers(this@MikuVpnService)}" +
@@ -331,7 +341,7 @@ class MikuVpnService : VpnService(), ServiceControl {
 
     private fun reportStartFailure(detail: String) {
         val message = detail.ifBlank { getString(R.string.mihomo_start_failed) }
-        Log.e(TAG, "VPN start failed: $message")
+        LogUtil.e(message = "VPN start failed: $message")
         sendBroadcast(
             Intent(vpnAction(packageName, ACTION_VPN_START_FAILED))
                 .setPackage(packageName)
@@ -352,7 +362,7 @@ class MikuVpnService : VpnService(), ServiceControl {
      */
     private fun restartVpn() {
         if (tunFd == MihomoCore.NO_TUN) return
-        Log.i(TAG, "restarting the core for changed settings")
+        LogUtil.i(message = "restarting the core for changed settings")
         stopCore()
         // Both calls run on the same executor, so the start can never overtake the
         // stop and the old core is always shut down first.
@@ -400,6 +410,11 @@ class MikuVpnService : VpnService(), ServiceControl {
     }
 
     private fun stopVpn() {
+        // Reached twice per teardown — the caller and then onDestroy through
+        // stopSelf — and the second pass must be a no-op (see [stopping]).
+        if (stopping) return
+        stopping = true
+        LogUtil.i(message = "stop requested")
         TrafficController.stop()
         stopCore()
         stopForegroundCompat()
@@ -584,8 +599,6 @@ class MikuVpnService : VpnService(), ServiceControl {
         fun vpnAction(packageName: String, suffix: String) = "$packageName.action.$suffix"
 
         const val EXTRA_FAILURE_DETAIL = "failure_detail"
-
-        private const val TAG = "MikuBox"
 
         private const val CHANNEL_ID = "miku_vpn_status"
         private const val NOTIFICATION_ID = 1

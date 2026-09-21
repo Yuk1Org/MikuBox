@@ -1,6 +1,6 @@
 # MikuRay UI / mihomo 功能接缝检查（2026-09-20）
 
-基线：PR https://github.com/HatsuneMikuUwU/MikuBoxForAndroid/pull/21 ，本地 HEAD `7fb81ab8dcadc7d524668021c797eeb833f45686`，检查前工作区干净。UI 来源为 https://github.com/HatsuneMikuUwU/MikuRay 。本次关注应用的数据通路、配置转换、服务生命周期和最终 Android 包；不是对 vendored mihomo 全仓库的穷尽安全审计。
+基线：Mihomo 与 MikuRay UI 整合版本。UI 来源为 https://github.com/HatsuneMikuUwU/MikuRay 。本次关注应用的数据通路、配置转换、服务生命周期和最终 Android 包；不是对 vendored mihomo 全仓库的穷尽安全审计。
 
 ## 已修复的功能问题
 

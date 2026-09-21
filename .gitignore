@@ -36,6 +36,3 @@ core/mihomo-bridge/mihomo-bridge
 # Scratch: the port's own working notes, and tool probes. Not part of the app.
 .port-backup/
 .hookprobe/
-
-# video2code plugin local marker
-.v2c/

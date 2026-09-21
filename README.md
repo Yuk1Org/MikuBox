@@ -92,7 +92,7 @@ MikuBox natively consumes Mihomo (Clash) configuration — nodes, policy groups 
 
 | Downloads | Commit Activity | Telegram Channel | Telegram 中文频道 |
 | :---: | :---: | :---: | :---: |
-| [![GitHub All Releases](https://img.shields.io/github/downloads/HatsuneMikuUwU/MikuBoxForAndroid/total?label=downloads-total&logo=github&style=flat-square)](https://github.com/HatsuneMikuUwU/MikuBoxForAndroid/releases) | [![GitHub commit activity](https://img.shields.io/github/commit-activity/m/HatsuneMikuUwU/MikuBoxForAndroid?style=flat&logo=Github)](https://github.com/HatsuneMikuUwU/MikuBoxForAndroid/commits/main) | [![Telegram](https://img.shields.io/badge/Hatsune-2CA5E0?style=flat&logo=telegram&logoColor=white)](https://t.me/uwuowoumuchannel) |[![Telegram](https://img.shields.io/badge/NPCN-2CA5E0?style=flat&logo=telegram&logoColor=white)](https://t.me/np_nbcn) |
+| [![GitHub All Releases](https://img.shields.io/github/downloads/Yuk1Org/MikuBox/total?label=downloads-total&logo=github&style=flat-square)](https://github.com/Yuk1Org/MikuBox/releases) | [![GitHub commit activity](https://img.shields.io/github/commit-activity/m/Yuk1Org/MikuBox?style=flat&logo=Github)](https://github.com/Yuk1Org/MikuBox/commits/main) | [![Telegram](https://img.shields.io/badge/Hatsune-2CA5E0?style=flat&logo=telegram&logoColor=white)](https://t.me/uwuowoumuchannel) |[![Telegram](https://img.shields.io/badge/NPCN-2CA5E0?style=flat&logo=telegram&logoColor=white)](https://t.me/np_nbcn) |
 
 ---
 
@@ -104,6 +104,9 @@ This project is built upon the great work of the following open-source communiti
 **Core:**
 - [HSSkyBoy/Mihomo](https://github.com/HSSkyBoy/Mihomo/tree/Alpha)
 - [MetaCubeX/mihomo](https://github.com/MetaCubeX/mihomo)
+
+**Upstream project:**
+- [HatsuneMikuUwU/MikuBoxForAndroid](https://github.com/HatsuneMikuUwU/MikuBoxForAndroid)
 
 **Android UI:**
 - [HatsuneMikuUwU/MikuRay](https://github.com/HatsuneMikuUwU/MikuRay)

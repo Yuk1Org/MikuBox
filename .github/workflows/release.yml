@@ -48,19 +48,15 @@ jobs:
       - name: Build signed release APKs
         run: |
           chmod +x gradlew
-          # The version code grows by exactly one per published release: read
-          # the previous release's version.json and increment. The run number
-          # is not used because cancelled or re-run workflows would skip codes.
-          PREV_CODE=$(curl -fsSL \
-            "https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/latest" \
-            | jq -r '.assets[]? | select(.name=="version.json") | .browser_download_url' \
-            | head -1 | xargs -r curl -fsSL \
-            | jq -r '.versionCode // empty' 2>/dev/null || true)
-          # v0.1.0-miku-1, the last release published without version.json, was 1003.
-          [ -z "$PREV_CODE" ] && PREV_CODE=1003
+          # The version code is the version name decomposed base-100:
+          # vA.B.C -> A*100^2 + B*100 + C (v0.1.5 -> 105, v1.0.0 -> 10000).
+          # Each component owns exactly two digits, and nothing is read from
+          # previous releases, so re-cutting a tag yields the same code.
           VERSION_NAME="${GITHUB_REF_NAME#v}"
-          VERSION_CODE=$((PREV_CODE + 1))
-          echo "VERSION_NAME=$VERSION_NAME VERSION_CODE=$VERSION_CODE (prev: $PREV_CODE)"
+          IFS='.' read -r MAJOR MINOR PATCH _ <<<"$VERSION_NAME"
+          digits() { local d="${1:-0}"; d="${d%%[!0-9]*}"; echo "${d:-0}"; }
+          VERSION_CODE=$(( $(digits "$MAJOR") * 10000 + $(digits "$MINOR") * 100 + $(digits "$PATCH") ))
+          echo "VERSION_NAME=$VERSION_NAME VERSION_CODE=$VERSION_CODE"
           ./gradlew :app:assembleRelease --no-daemon --stacktrace \
             -PversionNameOverride="$VERSION_NAME" \
             -PversionCodeOverride="$VERSION_CODE"

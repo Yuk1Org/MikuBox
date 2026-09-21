@@ -2,6 +2,9 @@ name: Build release
 
 # Cutting a tag builds the signed release APKs and publishes them as a
 # GitHub release; the in-app updater reads the same release.
+# Touching this file re-registers the workflow with Actions — the 2026-09
+# branch history rewrite dropped it from the registry, so tag pushes
+# silently did nothing until it was pushed again.
 on:
   push:
     tags:

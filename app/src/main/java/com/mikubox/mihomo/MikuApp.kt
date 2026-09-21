@@ -3,6 +3,7 @@ package com.mikubox.mihomo
 import android.app.Activity
 import android.app.Application
 import android.os.Bundle
+import kotlinx.coroutines.launch
 
 /**
  * The application class.
@@ -80,6 +81,33 @@ class MikuApp : com.miku.ray.AngApplication() {
         // runs, and every ported activity wraps its context with the chosen
         // locale. This app kept a second copy of both, which is what the app's
         // settings store used to hold; it is gone.
+        // Update auto-check: opt-in from About & updates (off by default). The
+        // process-wide scope outlives SplashActivity, whose own lifecycle would
+        // cancel a per-activity launch before the request could finish.
+        if (com.miku.ray.handler.MmkvManager.decodeSettingsBool(com.miku.ray.AppConfig.PREF_AUTO_CHECK_UPDATE, false)) {
+            val checkScope = kotlinx.coroutines.CoroutineScope(
+                kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO
+            )
+            checkScope.launch {
+                val result = runCatching {
+                    com.miku.ray.handler.UpdateCheckerManager.checkForUpdate(
+                        this@MikuApp,
+                        com.miku.ray.handler.MmkvManager.decodeSettingsBool(
+                            com.miku.ray.AppConfig.PREF_CHECK_UPDATE_PRE_RELEASE, false
+                        ),
+                    )
+                }.getOrNull()
+                if (result?.hasUpdate == true) {
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        android.widget.Toast.makeText(
+                            this@MikuApp,
+                            getString(com.mikubox.mihomo.R.string.update_available_toast, result.latestVersion),
+                            android.widget.Toast.LENGTH_LONG,
+                        ).show()
+                    }
+                }
+            }
+        }
     }
 
     override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {

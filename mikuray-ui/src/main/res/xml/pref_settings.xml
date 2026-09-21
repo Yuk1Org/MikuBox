@@ -78,6 +78,13 @@
         android:key="pref_navigate_advanced_settings"
         android:summary="@string/mihomo_preview_advanced"
         android:title="@string/title_advanced"
+        app:layout="@layout/uwu_mid" />
+
+    <Preference
+        android:icon="@drawable/rmx_information_line"
+        android:key="pref_navigate_about_update"
+        android:summary="@string/summary_navigate_about_update"
+        android:title="@string/title_about_update"
         app:layout="@layout/uwu_bot" />
 
 </PreferenceScreen>

@@ -102,6 +102,26 @@
             android:parentActivityName="com.miku.ray.ui.preference.activity.SettingsActivity" />
 
         <activity
+            android:name="com.miku.ray.ui.preference.activity.HomeSettingsActivity"
+            android:exported="false"
+            android:parentActivityName="com.miku.ray.ui.preference.activity.UiSettingsActivity" />
+
+        <activity
+            android:name="com.miku.ray.ui.preference.activity.BannerSettingsActivity"
+            android:exported="false"
+            android:parentActivityName="com.miku.ray.ui.preference.activity.UiSettingsActivity" />
+
+        <activity
+            android:name="com.miku.ray.ui.preference.activity.AlertSettingsActivity"
+            android:exported="false"
+            android:parentActivityName="com.miku.ray.ui.preference.activity.UiSettingsActivity" />
+
+        <activity
+            android:name="com.miku.ray.ui.preference.activity.AboutUpdateActivity"
+            android:exported="false"
+            android:parentActivityName="com.miku.ray.ui.preference.activity.SettingsActivity" />
+
+        <activity
             android:name="com.miku.ray.ui.preference.activity.VpnSettingsActivity"
             android:exported="false"
             android:parentActivityName="com.miku.ray.ui.preference.activity.SettingsActivity" />

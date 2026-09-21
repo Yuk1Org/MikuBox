@@ -23,12 +23,12 @@
 使用本机 Temurin JDK 21。默认 JDK 25 下 Gradle 配置失败，本次未改变用户的系统 Java 设置。
 
 ```sh
-JAVA_HOME=/Users/hill/Library/Java/JavaVirtualMachines/temurin-21.0.11.jdk/Contents/Home ./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleDebug --console=plain
+JAVA_HOME=$(/usr/libexec/java_home -v 21) ./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleDebug --console=plain
 cd core/mihomo-bridge
 go test -tags 'with_gvisor cmfa' ./...
 ```
 
-测试入口：`app/src/test/java/top/uwu/mikubox/RegressionTest.kt`。
+测试入口：`app/src/test/java/com/mikubox/mihomo/RegressionTest.kt`。
 
 结果：
 

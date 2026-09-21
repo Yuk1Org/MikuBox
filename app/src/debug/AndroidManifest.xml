@@ -20,7 +20,7 @@
             emulator, where the machine running it cannot host the listener.
         -->
         <provider
-            android:name="top.uwu.mikubox.debug.LocalSocks5Provider"
+            android:name="com.mikubox.mihomo.debug.LocalSocks5Provider"
             android:authorities="${applicationId}.local-socks5"
             android:exported="false" />
 

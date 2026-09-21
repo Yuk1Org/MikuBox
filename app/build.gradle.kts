@@ -32,25 +32,28 @@ fun secret(name: String): String? =
         ?: System.getenv(name)?.takeIf { it.isNotBlank() }
 
 android {
-    namespace = "top.uwu.mikubox"
+    namespace = "com.mikubox.mihomo"
     compileSdk = 36
     buildToolsVersion = "36.1.0"
     ndkVersion = "29.0.13599879"
 
     defaultConfig {
-        testInstrumentationRunner = "top.uwu.mikubox.RuntimeSmokeInstrumentation"
-        applicationId = "top.uwu.mikubox"
+        testInstrumentationRunner = "com.mikubox.mihomo.RuntimeSmokeInstrumentation"
+        applicationId = "com.mikubox.mihomo"
         minSdk = 24
         targetSdk = 36
-        versionCode = 10
-        versionName = "UwU-1.0.0"
+        // Release workflows override both with the pushed tag (and the CI run
+        // number, which only ever grows) so a tagged build reports and sorts
+        // as the version it publishes; local builds keep the checked-in values.
+        versionCode = (findProperty("versionCodeOverride") as String?)?.toIntOrNull() ?: 10
+        versionName = (findProperty("versionNameOverride") as String?) ?: "UwU-1.0.0"
 
         // The ported banner card (uwu_banner_theme / uwu_maintainer) reads these
         // the same way MikuRay's does — MikuRay declares them as resValues in its
         // build script, so the vendored layouts expect the names to exist.
         val bannerVersionName = versionName ?: "UwU-1.0.0"
         resValue("string", "uwu_version_name", bannerVersionName)
-        resValue("string", "uwu_package_name", "top.uwu.mikubox")
+        resValue("string", "uwu_package_name", "com.mikubox.mihomo")
         resValue("string", "uwu_build_date", LocalDate.now().toString())
 
         externalNativeBuild {
@@ -84,7 +87,9 @@ android {
 
     // MikuRay's vendored sources are compiled by :mikuray-ui (they need to see
     // the view bindings generated there), so this module only compiles MikuBox's
-    // own code and consumes the rest as a dependency.
+    // own code and consumes the rest as a dependency. The java filter alone
+    // leaves the .kt files to this module's Kotlin compiler, which then ships
+    // duplicate classes the release dexer rejects.
     sourceSets.getByName("main").java.filter.exclude("com/miku/ray/**")
 
     testOptions.unitTests.isIncludeAndroidResources = true
@@ -220,6 +225,12 @@ tasks.configureEach {
     if (name.contains("CMake") || name.endsWith("JniLibFolders")) {
         dependsOn(buildMihomoBridge)
     }
+}
+
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+    // Keep this module from recompiling the vendored sources that belong to
+    // :mikuray-ui (see the source set exclude above for why).
+    exclude("com/miku/ray/**")
 }
 
 val stripDebugApkMetadata by tasks.registering {

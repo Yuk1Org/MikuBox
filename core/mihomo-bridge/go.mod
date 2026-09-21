@@ -1,4 +1,4 @@
-module top.uwu.mikubox/mihomo-bridge
+module com.mikubox.mihomo/mihomo-bridge
 
 // Mihomo is pinned by the submodule. The embedded JavaScript engine requires Go 1.25.
 go 1.25.0

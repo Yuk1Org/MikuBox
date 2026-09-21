@@ -47,7 +47,7 @@ class CheckUpdateActivity : BaseActivity() {
         // PackageManager is the authority for the installed version; compiled-in
         // constants live in the vendored library module and can lag the build.
         val installedName = packageManager.getPackageInfo(packageName, 0).versionName ?: ""
-        "v$installedName (${CoreNativeManager.getLibVersion()})".also {
+        getString(R.string.version_line_with_core, installedName, CoreNativeManager.getLibVersion()).also {
             binding.tvVersion.text = it
         }
 

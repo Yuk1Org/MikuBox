@@ -45,7 +45,7 @@ class AboutActivity : BaseActivity() {
             Utils.openUri(this, AppConfig.APP_PRIVACY_POLICY)
         }
 
-        "v${BuildConfig.VERSION_NAME} (${CoreNativeManager.getLibVersion()})".also {
+        getString(R.string.version_line_with_core, BuildConfig.VERSION_NAME, CoreNativeManager.getLibVersion()).also {
             binding.tvVersion.text = it
         }
         BuildConfig.APPLICATION_ID.also {

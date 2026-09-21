@@ -57,16 +57,13 @@ object SpeedtestManager {
         ) ?: return null
         val ipInfo = JsonUtil.fromJsonSafe(content, IPAPIInfo::class.java) ?: return null
 
-        return listOf(
-            ipInfo.country_code,
-            ipInfo.country,
-            ipInfo.countryCode,
-            ipInfo.location?.country_code
-        ).firstOrNull { !it.isNullOrBlank() }
-        ?.trim()
-        ?.uppercase()
-        ?.takeIf { it.length == 2 }
+        return countryCode(ipInfo)
     }
+
+    fun countryCode(info: IPAPIInfo): String? = listOf(
+        info.country_code, info.countryCode, info.location?.country_code, info.country,
+    ).asSequence().filterNotNull().map { it.trim().uppercase(java.util.Locale.ROOT) }
+        .firstOrNull { it.matches(Regex("[A-Z]{2}")) }
 
     fun getRemoteIPInfo(): String? {
         val url = MmkvManager.decodeSettingsString(AppConfig.PREF_IP_API_URL)
@@ -97,12 +94,7 @@ object SpeedtestManager {
         val ipInfo = parsed ?: return null
         val ip = address ?: return null
 
-        val country = listOf(
-            ipInfo.country_code,
-            ipInfo.country,
-            ipInfo.countryCode,
-            ipInfo.location?.country_code
-        ).firstOrNull { !it.isNullOrBlank() }
+        val country = countryCode(ipInfo)
 
         val showIsp = MmkvManager.decodeSettingsBool(AppConfig.PREF_SHOW_ISP_INFO, true)
         val isp = if (showIsp) {

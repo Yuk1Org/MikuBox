@@ -61,6 +61,7 @@ class CoreTestService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        com.miku.ray.MikuDiagnostics.impl?.attach(this)
         CoreNativeManager.initCoreEnv(this)
     }
 
@@ -73,6 +74,7 @@ class CoreTestService : Service() {
         activeWorker = null
         activeMessage = null
         NotificationHelper.stopForeground(this)
+        com.miku.ray.MikuDiagnostics.impl?.detach(this)
         super.onDestroy()
 
         Handler(Looper.getMainLooper()).postDelayed({

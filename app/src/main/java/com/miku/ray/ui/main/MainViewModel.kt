@@ -27,6 +27,7 @@ import com.miku.ray.util.LogUtil
 import com.miku.ray.util.MessageUtil
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -122,7 +123,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             if (refreshList) notifyListChanged(-1)
             return
         }
-        _ipResultText.value = ""
+        if (!running && !isRestarting) {
+            _ipResultText.value = ""
+            activeIpRequestId = null
+        }
         _isRunning.value = running
         if (!running) markConnectionStopped()
         if (refreshList) notifyListChanged(-1)
@@ -224,6 +228,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (!serverCacheLoaded) reloadServerList()
     }
 
+    /** All GUIDs the quick-action buttons should operate on. Falls back to the
+     *  full MMKV list when the in-memory cache is empty (e.g. user hasn't visited
+     *  a group tab yet, or the active subscription has no servers). */
+    fun quickActionTargetGuids(): List<String> {
+        ensureServerCacheReady()
+        val fromCache = serversCache.map { it.guid }
+        if (fromCache.isNotEmpty()) return fromCache
+        return MmkvManager.decodeAllServerList()
+    }
+
     fun removeServer(guid: String) {
         serverList.remove(guid)
         MmkvManager.removeServer(guid)
@@ -316,6 +330,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun updateConfigViaSubAll(): SubscriptionUpdateResult {
+        if (com.miku.ray.MikuProfiles.impl != null) return mainRepository.updateConfigViaSubAll()
         if (subscriptionId.isEmpty()) {
             return mainRepository.updateConfigViaSubAll()
         } else {
@@ -337,7 +352,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun testAllRealPing(onlyTcp: Boolean = false) {
         val testId = UUID.randomUUID().toString()
-        val targetGuids = serversCache.map { it.guid }.toList()
+        val targetGuids = quickActionTargetGuids()
         activeTestId = testId
         activeTestCompleted = 0
         activeTestTotal = targetGuids.size
@@ -345,13 +360,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         notifyListChanged(-1)
 
         viewModelScope.launch(Dispatchers.Default) {
-            if (targetGuids.isEmpty()) {
-                withContext(Dispatchers.Main) {
-                    reloadServerList()
-                }
-            }
             val preparedGuids = if (targetGuids.isEmpty()) {
-                withContext(Dispatchers.Main) { serversCache.map { it.guid }.toList() }
+                withContext(Dispatchers.Main) { quickActionTargetGuids() }
             } else targetGuids
             if (preparedGuids.isEmpty()) {
                 activeTestId = null
@@ -365,7 +375,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     key = AppConfig.MSG_MEASURE_CONFIG_START,
                     testId = testId,
                     subscriptionId = subscriptionId,
-                    serverGuids = if (keywordFilter.isNotEmpty() || targetGuids.isNotEmpty()) preparedGuids else emptyList(),
+                    serverGuids = preparedGuids,
                     onlyTcp = onlyTcp
                 ), requestId = testId
             )
@@ -380,7 +390,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             )
         }
         activeCountryCodeTestId = requestId
-        val targetGuids = serversCache.map { it.guid }.toList()
+        val targetGuids = quickActionTargetGuids()
         MmkvManager.clearAllCountryCodes(targetGuids)
         notifyListChanged(-1)
 
@@ -447,8 +457,40 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         testCurrentServerRealPing()
     }
 
-    fun fetchCurrentIp() {
-        mainRepository.sendMsg2Service(AppConfig.MSG_MEASURE_IP, "")
+    private var activeIpRequestId: String? = null
+    private var pendingIpRefreshJob: Job? = null
+
+    fun fetchCurrentIp(delayMs: Long = 0L) {
+        pendingIpRefreshJob?.cancel()
+        if (delayMs <= 0L) {
+            doFetchCurrentIp()
+        } else {
+            pendingIpRefreshJob = viewModelScope.launch {
+                delay(delayMs)
+                doFetchCurrentIp()
+            }
+        }
+    }
+
+    private var ipRetryCount = 0
+    private val maxIpRetries = 2
+
+    private fun doFetchCurrentIp() {
+        if (!isRunning.value) return
+        val requestId = UUID.randomUUID().toString()
+        activeIpRequestId = requestId
+        mainRepository.requestIp(requestId)
+        // Schedule a retry in case the measurement fails silently (proxy port not
+        // yet ready, epoch changed mid-flight, or API timeout). The retry is
+        // cancelled if a successful result arrives first.
+        ipRetryCount = 0
+        pendingIpRefreshJob = viewModelScope.launch {
+            delay(6000L)
+            if (isRunning.value && ipRetryCount < maxIpRetries && _ipResultText.value.isEmpty()) {
+                ipRetryCount++
+                doFetchCurrentIp()
+            }
+        }
     }
 
     fun subscriptionIdChanged(id: String) {
@@ -594,6 +636,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         MmkvManager.setSelectServer(guid)
         pendingServerRestartGuid = guid
         isRestarting = true
+        // Clear the old node's IP immediately so the user never sees stale IP
+        // while the new core is still starting (the ~1.2s debounce + restart window).
+        _ipResultText.value = ""
+        activeIpRequestId = null
         return true
     }
 
@@ -763,11 +809,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
 
             is MainServiceEvent.MeasureIpResult -> {
-                if (event.requestId.isEmpty()
-                    || event.requestId == activeCurrentTestId
-                    || event.requestId == lastCurrentTestId
+                if (if (activeIpRequestId != null) event.requestId == activeIpRequestId else
+                    event.requestId.isEmpty() || event.requestId == activeCurrentTestId || event.requestId == lastCurrentTestId
                 ) {
-                    if (isRunning.value && !event.ip.isNullOrBlank()) _ipResultText.value = event.ip
+                    if (isRunning.value && !event.ip.isNullOrBlank()) {
+                        _ipResultText.value = event.ip
+                        ipRetryCount = 0
+                    }
                 }
             }
 

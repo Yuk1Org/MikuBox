@@ -20,8 +20,8 @@ object MessageUtil {
 
     const val EXTRA_REQUEST_ID = "requestId"
 
-    fun sendMsg2Service(ctx: Context, what: Int, content: Serializable) {
-        sendMsg(ctx, AppConfig.BROADCAST_ACTION_SERVICE, what, content)
+    fun sendMsg2Service(ctx: Context, what: Int, content: Serializable, requestId: String? = null) {
+        sendMsg(ctx, AppConfig.BROADCAST_ACTION_SERVICE, what, content, requestId)
     }
 
     fun sendMsg2ServiceForResult(
@@ -118,6 +118,9 @@ object MessageUtil {
             }
         } catch (e: Exception) {
             LogUtil.e(AppConfig.TAG, "Failed to send message to country code service", e)
+            if (message.key == AppConfig.MSG_COUNTRY_CODE_START) {
+                sendMsg2UI(ctx, AppConfig.MSG_COUNTRY_CODE_FINISH, "", message.requestId)
+            }
         }
     }
 

@@ -133,13 +133,15 @@ class MainRepository(
         MmkvManager.decodeSettingsString(AppConfig.CACHE_SUBSCRIPTION_ID, "").orEmpty()
 
     override fun updateConfigViaSubAll(): SubscriptionUpdateResult =
-        AngConfigManager.updateConfigViaSubAll()
+        if (com.miku.ray.MikuProfiles.impl != null) com.miku.ray.MikuSubscriptions.refreshAll() else AngConfigManager.updateConfigViaSubAll()
 
     override fun updateConfigViaSub(subscriptionCache: SubscriptionCache): SubscriptionUpdateResult =
-        AngConfigManager.updateConfigViaSub(subscriptionCache)
+        if (com.miku.ray.MikuProfiles.impl != null) com.miku.ray.MikuSubscriptions.refreshAll() else AngConfigManager.updateConfigViaSub(subscriptionCache)
 
     override fun shareNonCustomConfigsToClipboard(guids: List<String>): Int =
         AngConfigManager.shareNonCustomConfigsToClipboard(app, guids)
+
+    override fun requestIp(requestId: String) { MessageUtil.sendMsg2Service(app, AppConfig.MSG_MEASURE_IP, "", requestId) }
 
     override fun sendMsg2Service(msgId: Int, content: String) {
         MessageUtil.sendMsg2Service(app, msgId, content)

@@ -14,6 +14,7 @@ interface MainDataSource : AutoCloseable {
     fun updateConfigViaSub(subscriptionCache: SubscriptionCache): SubscriptionUpdateResult
     fun shareNonCustomConfigsToClipboard(guids: List<String>): Int
     fun sendMsg2Service(msgId: Int, content: String)
+    fun requestIp(requestId: String) { sendMsg2Service(com.miku.ray.AppConfig.MSG_MEASURE_IP, "") }
     fun queryRunningState(onResult: (isRunning: Boolean) -> Unit)
     fun sendMsg2TestService(msg: TestServiceMessage, requestId: String? = null)
     fun sendMsg2CountryCodeTestService(msg: CountryCodeTestMessage)

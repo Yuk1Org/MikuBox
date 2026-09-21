@@ -22,6 +22,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.widget.SearchView
@@ -181,6 +182,15 @@ ShareConfigBottomSheet.OnShareOptionClickListener {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(binding.root)
+        // Back on the home screen backgrounds the app instead of leaving it.
+        // With predictive back enabled in the manifest the system no longer
+        // sends KEYCODE_BACK through onKeyDown, so the behaviour lives here;
+        // onKeyDown keeps it for the legacy key dispatch and for BUTTON_B.
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                moveTaskToBack(false)
+            }
+        })
         showTestBuildInfoIfNeeded()
 
         hideLoading()

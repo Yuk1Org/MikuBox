@@ -11,6 +11,11 @@ import java.io.IOException
 import java.net.InetSocketAddress
 import java.net.Socket
 import java.net.UnknownHostException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withTimeoutOrNull
 
 object SpeedtestManager {
 
@@ -65,7 +70,7 @@ object SpeedtestManager {
     ).asSequence().filterNotNull().map { it.trim().uppercase(java.util.Locale.ROOT) }
         .firstOrNull { it.matches(Regex("[A-Z]{2}")) }
 
-    fun getRemoteIPInfo(): String? {
+    suspend fun getRemoteIPInfo(): String? {
         val url = MmkvManager.decodeSettingsString(AppConfig.PREF_IP_API_URL)
         .takeIf { !it.isNullOrBlank() } ?: AppConfig.IP_API_URL
 
@@ -75,24 +80,34 @@ object SpeedtestManager {
         if (httpPort == 0) return null
         // A temporary API outage must not erase a valid IP. Try independent
         // endpoints through the same mixed inbound, never directly from the app.
+        // They race in parallel so one slow endpoint cannot hold back the answer.
         val urls = listOf(url.replace("{ip}", "", ignoreCase = true),
             "https://api.ipify.org?format=json", "https://api.ip.sb/geoip").distinct()
-        var parsed: IPAPIInfo? = null
-        var address: String? = null
-        for (endpoint in urls) {
-            val candidate = runCatching {
-                val content = HttpUtil.getUrlContent(UrlContentRequest(
-                    url = endpoint, timeout = 5000, httpPort = httpPort,
-                    proxyUsername = proxyUsername, proxyPassword = proxyPassword,
-                )) ?: return@runCatching null
-                JsonUtil.fromJsonSafe(content, IPAPIInfo::class.java)
-            }.getOrNull() ?: continue
-            val candidateIp = listOf(candidate.ip, candidate.clientIp, candidate.ip_addr, candidate.query)
-                .firstOrNull { !it.isNullOrBlank() && Utils.isPureIpAddress(it) }
-            if (candidateIp != null) { parsed = candidate; address = candidateIp; break }
-        }
-        val ipInfo = parsed ?: return null
-        val ip = address ?: return null
+
+        val winner = CompletableDeferred<Pair<IPAPIInfo, String>>()
+        val found = coroutineScope {
+            val probes = urls.map { endpoint ->
+                async(Dispatchers.IO) {
+                    val candidate = runCatching {
+                        val content = HttpUtil.getUrlContent(UrlContentRequest(
+                            url = endpoint, timeout = 3000, httpPort = httpPort,
+                            proxyUsername = proxyUsername, proxyPassword = proxyPassword,
+                        )) ?: return@runCatching null
+                        JsonUtil.fromJsonSafe(content, IPAPIInfo::class.java)
+                    }.getOrNull() ?: return@async
+                    val candidateIp = listOf(candidate.ip, candidate.clientIp, candidate.ip_addr, candidate.query)
+                        .firstOrNull { !it.isNullOrBlank() && Utils.isPureIpAddress(it) }
+                        ?: return@async
+                    winner.complete(candidate to candidateIp)
+                }
+            }
+            // Once any endpoint answers (or none does within the window), the
+            // remaining probes are cancelled and their sockets abandoned.
+            val result = withTimeoutOrNull(3500L) { winner.await() }
+            probes.forEach { it.cancel() }
+            result
+        } ?: return null
+        val (ipInfo, ip) = found
 
         val country = countryCode(ipInfo)
 

@@ -226,11 +226,12 @@ object CoreServiceManager {
 
     /**
      * Measures the connection as the home screen shows it: the delay of the node
-     * the tunnel uses, and — when that succeeded — the address it exits with.
+     * the tunnel uses, and the address it exits with. Both run concurrently so
+     * the address is not held back by a slow delay test.
      */
     private fun measureConnection(service: Service, requestId: String) {
         if (!isRunning()) return
-        val startingIpSequence = ipSequence.get()
+        measureIp(service, requestId)
         backgroundScope.launch {
             val testUrl = SettingsManager.getDelayTestUrl()
             val delay = runCatching { MikuCoreBridge.currentNodeDelay(testUrl) }.getOrDefault(-1L)
@@ -240,7 +241,6 @@ object CoreServiceManager {
                 service.getString(R.string.connection_test_error, "")
             }
             MessageUtil.sendMsg2UI(service, AppConfig.MSG_MEASURE_DELAY_SUCCESS, result, requestId)
-            if (isRunning() && startingIpSequence == ipSequence.get()) measureIp(service, requestId)
         }
     }
 

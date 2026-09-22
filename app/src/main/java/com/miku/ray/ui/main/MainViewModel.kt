@@ -485,7 +485,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         // cancelled if a successful result arrives first.
         ipRetryCount = 0
         pendingIpRefreshJob = viewModelScope.launch {
-            delay(6000L)
+            delay(3000L)
             if (isRunning.value && ipRetryCount < maxIpRetries && _ipResultText.value.isEmpty()) {
                 ipRetryCount++
                 doFetchCurrentIp()

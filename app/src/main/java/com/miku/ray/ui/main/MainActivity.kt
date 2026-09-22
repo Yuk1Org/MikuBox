@@ -907,7 +907,7 @@ ShareConfigBottomSheet.OnShareOptionClickListener {
     }
 
     private fun setupListeners() {
-        binding.routingMode.onSelectionChanged = { mainViewModel.fetchCurrentIp(delayMs = 1200L) }
+        binding.routingMode.onSelectionChanged = { mainViewModel.fetchCurrentIp(delayMs = 300L) }
         binding.fab.setOnClickListener { mainViewModel.onFabClicked() }
         binding.fab.shrink()
 

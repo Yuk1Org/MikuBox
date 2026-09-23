@@ -572,7 +572,7 @@ ShareConfigBottomSheet.OnShareOptionClickListener {
         } else {
             lastIpStateText.ifEmpty { getString(R.string.ip_unknown) }
         }
-        binding.tvIpState.showValue(value, !showRealtimeTraffic && mainViewModel.isRunning.value)
+        binding.tvIpState.showValue(value, !showRealtimeTraffic)
     }
 
 

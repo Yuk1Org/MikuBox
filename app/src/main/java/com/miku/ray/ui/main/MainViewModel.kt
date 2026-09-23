@@ -23,6 +23,7 @@ import com.miku.ray.core.LauncherManager
 import com.miku.ray.handler.AngConfigManager
 import com.miku.ray.handler.MmkvManager
 import com.miku.ray.handler.SettingsManager
+import com.miku.ray.handler.SpeedtestManager
 import com.miku.ray.util.LogUtil
 import com.miku.ray.util.MessageUtil
 import kotlinx.coroutines.Dispatchers
@@ -128,8 +129,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             activeIpRequestId = null
         }
         _isRunning.value = running
-        if (!running) markConnectionStopped()
+        if (!running) {
+            markConnectionStopped()
+        } else {
+            // The service measures on its own initiative (empty request id);
+            // a stale id from a direct probe would make the UI drop that result.
+            activeIpRequestId = null
+            directIpJob?.cancel()
+        }
         if (refreshList) notifyListChanged(-1)
+        if (!running && !isRestarting) {
+            // The tunnel is down — probe the device's own connection so the
+            // readout keeps proving the app is alive instead of going blank.
+            fetchCurrentIp(delayMs = 500L)
+        }
     }
 
     private fun notifyListChanged(index: Int = -1, refreshBadge: Boolean = true) {
@@ -147,6 +160,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 setRunning(true)
             } else if (!isRestarting) {
                 setRunning(false)
+                // Disconnected at launch: probe anyway so the status line does
+                // not look dead before the user ever taps connect.
+                fetchCurrentIp()
             }
         }
     }
@@ -459,9 +475,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private var activeIpRequestId: String? = null
     private var pendingIpRefreshJob: Job? = null
+    private var directIpJob: Job? = null
 
     fun fetchCurrentIp(delayMs: Long = 0L) {
         pendingIpRefreshJob?.cancel()
+        // A fresh, user-visible trigger starts a new retry budget.
+        ipRetryCount = 0
         if (delayMs <= 0L) {
             doFetchCurrentIp()
         } else {
@@ -476,17 +495,31 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val maxIpRetries = 2
 
     private fun doFetchCurrentIp() {
-        if (!isRunning.value) return
+        // During a node-switch restart the readout is intentionally blank; any
+        // probe now would report an address the tunnel is about to replace.
+        if (isRestarting) return
         val requestId = UUID.randomUUID().toString()
         activeIpRequestId = requestId
-        mainRepository.requestIp(requestId)
+        if (isRunning.value) {
+            mainRepository.requestIp(requestId)
+        } else {
+            // No tunnel (and possibly no service) to measure through — probe
+            // the device's own connection directly instead.
+            directIpJob?.cancel()
+            directIpJob = viewModelScope.launch(Dispatchers.IO) {
+                val ip = runCatching { SpeedtestManager.getRemoteIPInfo(direct = true) }.getOrNull()
+                if (!ip.isNullOrBlank() && requestId == activeIpRequestId && !isRunning.value) {
+                    _ipResultText.value = ip
+                    ipRetryCount = 0
+                }
+            }
+        }
         // Schedule a retry in case the measurement fails silently (proxy port not
         // yet ready, epoch changed mid-flight, or API timeout). The retry is
         // cancelled if a successful result arrives first.
-        ipRetryCount = 0
         pendingIpRefreshJob = viewModelScope.launch {
             delay(3000L)
-            if (isRunning.value && ipRetryCount < maxIpRetries && _ipResultText.value.isEmpty()) {
+            if (ipRetryCount < maxIpRetries && _ipResultText.value.isEmpty()) {
                 ipRetryCount++
                 doFetchCurrentIp()
             }

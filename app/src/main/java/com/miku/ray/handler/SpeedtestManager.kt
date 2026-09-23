@@ -70,17 +70,32 @@ object SpeedtestManager {
     ).asSequence().filterNotNull().map { it.trim().uppercase(java.util.Locale.ROOT) }
         .firstOrNull { it.matches(Regex("[A-Z]{2}")) }
 
-    suspend fun getRemoteIPInfo(): String? {
+    /**
+     * The address this device exits with. Through the core's own inbound by
+     * default, so what comes back is what a browser behind the tunnel would
+     * see; with [direct] the probe goes out on the device's own connection,
+     * which is how the home screen keeps the readout alive while the tunnel
+     * is down. A temporary API outage must not erase a valid IP: independent
+     * endpoints race in parallel so one slow endpoint cannot hold back the
+     * answer.
+     */
+    suspend fun getRemoteIPInfo(direct: Boolean = false): String? {
         val url = MmkvManager.decodeSettingsString(AppConfig.PREF_IP_API_URL)
         .takeIf { !it.isNullOrBlank() } ?: AppConfig.IP_API_URL
 
-        val proxyUsername = SettingsManager.getSocksUsername()
-        val proxyPassword = SettingsManager.getSocksPassword()
-        val httpPort = SettingsManager.getHttpPort()
-        if (httpPort == 0) return null
-        // A temporary API outage must not erase a valid IP. Try independent
-        // endpoints through the same mixed inbound, never directly from the app.
-        // They race in parallel so one slow endpoint cannot hold back the answer.
+        val proxyUsername: String?
+        val proxyPassword: String?
+        val httpPort: Int
+        if (direct) {
+            proxyUsername = null
+            proxyPassword = null
+            httpPort = 0
+        } else {
+            proxyUsername = SettingsManager.getSocksUsername()
+            proxyPassword = SettingsManager.getSocksPassword()
+            httpPort = SettingsManager.getHttpPort()
+            if (httpPort == 0) return null
+        }
         val urls = listOf(url.replace("{ip}", "", ignoreCase = true),
             "https://api.ipify.org?format=json", "https://api.ip.sb/geoip").distinct()
 

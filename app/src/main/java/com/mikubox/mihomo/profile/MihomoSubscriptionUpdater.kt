@@ -87,7 +87,7 @@ object MihomoSubscriptionUpdater {
                 if (line == "proxies:") inProxies = true
                 return@forEach
             }
-            if (line.isNotBlank() && !line.first().isWhitespace()) return names
+            if (line.isNotBlank() && line.first() != ' ' && line.first() != '\t') return names
             val match = PROXY_NAME.matchEntire(line) ?: return@forEach
             names += match.groupValues[1]
                 .trim()

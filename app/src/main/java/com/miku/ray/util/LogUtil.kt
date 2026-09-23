@@ -27,9 +27,17 @@ object LogUtil {
         }
     }
 
+    // Reads the persisted level only when MMKV is ready. Unit tests (and any
+    // very-early process state before Application.onCreate) run without
+    // MMKV.initialize(), and a logging helper must never be the thing that
+    // crashes the caller — fall back to the default level instead.
+    private fun readPersistedLevel(): String? =
+        runCatching { MmkvManager.decodeSettingsString(AppConfig.PREF_LOGLEVEL, DEFAULT_LEVEL) }
+            .getOrNull()
+
     @Suppress("unused")
     fun refreshLogLevel() {
-        cachedMinPriority = parsePriority(MmkvManager.decodeSettingsString(AppConfig.PREF_LOGLEVEL, DEFAULT_LEVEL))
+        cachedMinPriority = parsePriority(readPersistedLevel())
     }
 
     private fun minPriority(): Int {
@@ -41,7 +49,7 @@ object LogUtil {
             if (current != CACHE_UNSET) {
                 current
             } else {
-                parsePriority(MmkvManager.decodeSettingsString(AppConfig.PREF_LOGLEVEL, DEFAULT_LEVEL)).also {
+                parsePriority(readPersistedLevel()).also {
                     cachedMinPriority = it
                 }
             }

@@ -7,6 +7,8 @@
 // merge. The code that inflates these resources lives in :app (com.miku.ray.*
 // and com.mikubox.mihomo.*) and must reference the merged R class of the app
 // module, i.e. com.mikubox.mihomo.R.
+import java.time.LocalDate
+
 plugins {
     alias(libs.plugins.android.library)
     // The module compiles MikuRay's vendored sources, so it needs Kotlin too.
@@ -47,7 +49,9 @@ android {
         resValue("string", "uwu_version_name", bannerVersionName)
         resValue("string", "uwu_version_code", "$bannerVersionCode")
         resValue("string", "uwu_package_name", "com.mikubox.mihomo")
-        resValue("string", "uwu_build_date", "2026-09-19")
+        // Same build-date source as the app module's resValue, so the banner
+        // reads one date no matter which module's merged entry wins.
+        resValue("string", "uwu_build_date", LocalDate.now().toString())
     }
 
     buildFeatures {

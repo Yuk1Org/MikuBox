@@ -59,6 +59,11 @@ jobs:
             echo "$KEYSTORE_BASE64" | base64 --decode > release.keystore
           fi
 
+      - name: Run unit tests
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:testDebugUnitTest --console=plain
+
       - name: Build debug APKs (per-ABI)
         env:
           KEYSTORE_PASS: ${{ secrets.KEYSTORE_PASS }}

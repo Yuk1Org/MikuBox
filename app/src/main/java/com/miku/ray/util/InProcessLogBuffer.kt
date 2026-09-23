@@ -7,6 +7,8 @@ import java.util.LinkedList
 import java.util.Locale
 
 object InProcessLogBuffer {
+    private const val MAX_LINES = 2000
+
     private val buffer: LinkedList<String> = LinkedList()
     private val fmt = SimpleDateFormat("MM-dd HH:mm:ss.SSS", Locale.US)
 
@@ -16,6 +18,12 @@ object InProcessLogBuffer {
         val threadName = Thread.currentThread().name
         val line = "${fmt.format(Date())} $level/$tag(${Process.myPid()}/$threadName): $message"
         buffer.addLast(line)
+        // A VPN session runs for days with verbose logging on and every line
+        // lands here forever; a crash report also embeds the whole buffer, so
+        // an unbounded list is both a slow memory leak and a growing stall
+        // before the dying process can even show the share sheet. The newest
+        // MAX_LINES are plenty for diagnosing a crash.
+        while (buffer.size > MAX_LINES) buffer.removeFirst()
     }
 
     @Synchronized

@@ -5,41 +5,42 @@ import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.Camera
 import android.graphics.Canvas
-import android.graphics.LinearGradient
-import android.graphics.Matrix
 import android.graphics.Paint
-import android.graphics.Shader
 import android.util.AttributeSet
 import androidx.interpolator.view.animation.FastOutSlowInInterpolator
 import com.miku.ray.marquee.text.AutoMarqueeTextView
-import kotlin.math.cos
-import kotlin.math.sin
 
-/** Two adjacent prism faces rotate upward; the live text stays accessible and marquee-capable. */
+/**
+ * Vertical conveyor roll for value changes: the outgoing line travels upward
+ * and dissolves while the incoming line rides up from below into place. Both
+ * faces share one easing, so the swap reads as a single continuous roll.
+ * A retarget mid-roll snapshots the frame as it is on screen, so rapid
+ * successive changes chain smoothly instead of jumping.
+ */
 class RollingIpTextView @JvmOverloads constructor(context: Context, attrs: AttributeSet? = null) : AutoMarqueeTextView(context, attrs) {
-    private val camera = Camera()
-    private val transform = Matrix()
     private var previous: Bitmap? = null
     private var animator: ValueAnimator? = null
     private var progress = 1f
     private var target: String? = null
-    private val shadePaint = Paint()
+    private val fadePaint = Paint()
 
     fun showValue(value: String, animate: Boolean) {
         if (value == target) return
         val hadText = !text.isNullOrBlank()
-        releaseAnimation()
-        if (animate && hadText && isAttachedToWindow && isLaidOut && width > 0 && height > 0) {
-            previous = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).also { draw(Canvas(it)) }
+        val snapshot = if (animate && hadText && isAttachedToWindow && isLaidOut && width > 0 && height > 0) {
+            Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).also { draw(Canvas(it)) }
+        } else {
+            null
         }
+        releaseAnimation()
         target = value
         text = value
-        if (previous == null) return
+        if (snapshot == null) return
+        previous = snapshot
         progress = 0f
         animator = ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = 380L
+            duration = 320L
             interpolator = FastOutSlowInInterpolator()
             addUpdateListener { progress = it.animatedValue as Float; invalidate() }
             addListener(object : AnimatorListenerAdapter() {
@@ -52,47 +53,31 @@ class RollingIpTextView @JvmOverloads constructor(context: Context, attrs: Attri
     override fun onDraw(canvas: Canvas) {
         val old = previous
         if (old == null || progress >= 1f) { super.onDraw(canvas); return }
-        val radians = progress * Math.PI / 2
-        val radius = height / 2f
         val checkpoint = canvas.save()
         canvas.clipRect(0, 0, width, height)
 
-        // Old face rotates away (top edge tipping backward into the screen).
-        face(canvas, -90f * progress, -radius * sin(radians).toFloat(), 1f - progress) {
-            canvas.drawBitmap(old, 0f, 0f, null)
-        }
-        // New face rotates in from below (bottom edge swinging up toward viewer).
-        face(canvas, 90f * (1f - progress), radius * cos(radians).toFloat(), progress) {
+        // Outgoing line rolls up and dissolves quickly so the swap reads as one
+        // motion instead of two texts competing for the same line.
+        fadePaint.alpha = ((1f - progress * 1.6f).coerceIn(0f, 1f) * 255).toInt()
+        canvas.save()
+        canvas.translate(0f, -height * progress)
+        canvas.drawBitmap(old, 0f, 0f, fadePaint)
+        canvas.restore()
+
+        // Incoming line rides up from below, fading in through the middle of
+        // the roll and settling as the outgoing line clears the top edge.
+        val alpha = ((progress - 0.15f) / 0.7f).coerceIn(0f, 1f)
+        canvas.save()
+        canvas.translate(0f, height * (1f - progress))
+        if (alpha < 1f) {
+            canvas.saveLayerAlpha(0f, 0f, width.toFloat(), height.toFloat(), (alpha * 255).toInt())
+            super.onDraw(canvas)
+            canvas.restore()
+        } else {
             super.onDraw(canvas)
         }
-        canvas.restoreToCount(checkpoint)
-    }
+        canvas.restore()
 
-    private inline fun face(canvas: Canvas, angle: Float, offset: Float, visibility: Float, draw: () -> Unit) {
-        val checkpoint = canvas.save()
-        camera.save()
-        camera.rotateX(angle)
-        camera.getMatrix(transform)
-        camera.restore()
-        transform.preTranslate(-width / 2f, -height / 2f)
-        transform.postTranslate(width / 2f, height / 2f + offset)
-        canvas.concat(transform)
-
-        // Shade the face as it turns away from the viewer, so the rotation
-        // reads as a 3D prism edge rather than a flat slide.
-        val shade = ((1f - visibility) * 110f).toInt().coerceIn(0, 110)
-        if (shade > 0) {
-            shadePaint.shader = LinearGradient(
-                0f, 0f, 0f, height.toFloat(),
-                0x70000000 or (shade shl 16) or (shade shl 8) or shade,
-                0x00000000,
-                Shader.TileMode.CLAMP
-            )
-            draw()
-            canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), shadePaint)
-        } else {
-            draw()
-        }
         canvas.restoreToCount(checkpoint)
     }
 

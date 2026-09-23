@@ -1456,6 +1456,13 @@ ShareConfigBottomSheet.OnShareOptionClickListener {
 
     private fun startV2Ray() {
         if (MmkvManager.getSelectServer().isNullOrEmpty()) {
+            // The mirror key can be stale right after an update or a restore,
+            // before the home screen's resume-time re-sync has run; the app's
+            // own profile store is the source of truth, so re-sync before
+            // refusing to connect instead of dead-clicking the button.
+            com.miku.ray.MikuProfiles.impl?.sync()
+        }
+        if (MmkvManager.getSelectServer().isNullOrEmpty()) {
             snackbarError(getString(R.string.title_file_chooser), title = getString(R.string.title_alerter_error))
             applyRunningState(isRunning = false)
             return

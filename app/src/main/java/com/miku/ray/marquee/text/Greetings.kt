@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.os.Build
 import android.util.AttributeSet
 import android.text.TextUtils
 import androidx.annotation.StringRes
@@ -47,7 +48,14 @@ class Greetings @JvmOverloads constructor(
             addAction(Intent.ACTION_TIME_CHANGED)
             addAction(Intent.ACTION_TIMEZONE_CHANGED)
         }
-        context.registerReceiver(timeReceiver, filter)
+        // These are system-only broadcasts, but targetSdk 34+ still demands an
+        // explicit export flag on context-registered receivers; without one the
+        // register call throws and takes the home header down with it.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            context.registerReceiver(timeReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            context.registerReceiver(timeReceiver, filter)
+        }
 
         updateDisplay()
     }

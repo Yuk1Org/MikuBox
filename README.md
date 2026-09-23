@@ -88,6 +88,25 @@ MikuBox natively consumes Mihomo (Clash) configuration — nodes, policy groups 
 
 ---
 
+## Building from source / 自行構建
+
+**Toolchain requirements:**
+- **JDK 21** — required exactly. The pinned Gradle 8.14.4's embedded Kotlin cannot parse newer JDKs (running on JDK 25 fails during settings script compilation with `IllegalArgumentException: 25`), and the Android plugins need 17+.
+- **Android SDK** with platform 36, build-tools 36.1.0, NDK 29.0.13599879 and CMake 3.22.1 (`sdkmanager --install "ndk;29.0.13599879" "cmake;3.22.1"`).
+- **Go 1.25** — the `core/mihomo-bridge` JNI library is compiled from Go by the `buildMihomoBridge` Gradle task, once per ABI.
+
+```bash
+git clone --recursive https://github.com/Yuk1Org/MikuBox.git   # submodules carry the mihomo core
+cd MikuBox
+./gradlew :app:assembleDebug          # debug APKs (one per ABI)
+./gradlew :app:testDebugUnitTest      # unit tests
+./gradlew :app:assembleRelease        # release APKs (unsigned without keystore secrets)
+```
+
+Release signing reads `KEYSTORE_PATH` / `KEYSTORE_PASS` / `ALIAS_NAME` / `ALIAS_PASS` from `local.properties` or the environment; without them release builds are left unsigned.
+
+---
+
 ## Statistics & Community / 統計 & 社群
 
 | Downloads | Commit Activity | Telegram Channel | Telegram 中文频道 |

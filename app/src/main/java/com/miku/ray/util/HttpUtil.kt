@@ -189,6 +189,14 @@ object HttpUtil {
         }
     }
 
+    // One shared client: every call site here used to build its own
+    // OkHttpClient, which means a fresh connection pool, dispatcher threads and
+    // idle keep-alive machinery per request — the exit-IP probes race three
+    // endpoints at a time and speed tests fire in bulk. Deriving per-request
+    // clients with newBuilder() keeps the pooling and just overrides what the
+    // request asks for.
+    private val baseClient = OkHttpClient()
+
     private fun buildOkHttpClient(
         timeout: Int,
         httpPort: Int,
@@ -196,7 +204,7 @@ object HttpUtil {
         proxyPassword: String?,
         followRedirects: Boolean
     ): OkHttpClient {
-        val builder = OkHttpClient.Builder()
+        val builder = baseClient.newBuilder()
         .connectTimeout(timeout.toLong(), TimeUnit.MILLISECONDS)
         .readTimeout(timeout.toLong(), TimeUnit.MILLISECONDS)
         .followRedirects(followRedirects)

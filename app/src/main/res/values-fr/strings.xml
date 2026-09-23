@@ -12,7 +12,8 @@
     <string name="vpn_channel_name">État du VPN</string>
     <string name="vpn_notification_running">Connecté</string>
     <string name="vpn_notification_speeds">↑%1$s ↓%2$s</string>
-    <string name="vpn_notification_stats">Session ↑%1$s ↓%2$s · Sortie %3$s</string>
+    <string name="vpn_notification_session">Session ↑%1$s ↓%2$s</string>
+    <string name="vpn_notification_exit_ip">Sortie %1$s</string>
     <string name="vpn_action_stop">Arrêter</string>
     <string name="vpn_tile_title">MikuBox VPN</string>
     <string name="local_proxy_notification_running">Le proxy Mihomo local est en cours d’exécution</string>

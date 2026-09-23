@@ -12,7 +12,8 @@
     <string name="vpn_channel_name">Status VPN</string>
     <string name="vpn_notification_running">Terhubung</string>
     <string name="vpn_notification_speeds">↑%1$s ↓%2$s</string>
-    <string name="vpn_notification_stats">Sesi ↑%1$s ↓%2$s · Keluar %3$s</string>
+    <string name="vpn_notification_session">Sesi ↑%1$s ↓%2$s</string>
+    <string name="vpn_notification_exit_ip">Keluar %1$s</string>
     <string name="vpn_action_stop">Berhenti</string>
     <string name="vpn_tile_title">VPN MikuBox</string>
     <string name="local_proxy_notification_running">Proksi Mihomo lokal sedang berjalan</string>

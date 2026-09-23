@@ -108,6 +108,9 @@ class MikuVpnService : VpnService(), ServiceControl {
 
     private var exitIpFetchedAt = 0L
 
+    /** Consecutive failed probes; drives the retry backoff while IP is unknown. */
+    private var exitIpFailures = 0
+
     private var wakeLock: android.os.PowerManager.WakeLock? = null
     private val wakeLockLock = Any()
 
@@ -315,6 +318,7 @@ class MikuVpnService : VpnService(), ServiceControl {
                     lastSampleAt = 0L
                     exitIpDisplay = null
                     exitIpFetchedAt = 0L
+                    exitIpFailures = 0
                     checkpointHandler.post(notificationStatsUpdate)
                     checkpointHandler.post(rowTrafficRefresh)
                     checkpointHandler.post(trafficCheckpoint)
@@ -381,11 +385,12 @@ class MikuVpnService : VpnService(), ServiceControl {
     /**
      * Re-posts the foreground notification with live numbers.
      *
-     * Collapsed, it shows the current up/down speed; expanded (BigTextStyle)
-     * adds the session totals and the exit IP. The JNI counter read runs on the
-     * executor, the notification re-post on the main thread; a generation
-     * change between the two means the tunnel these numbers describe is
-     * already gone, and the update is dropped.
+     * Collapsed, it shows the current up/down speed; expanded (InboxStyle) it
+     * lists the speed, the session totals and the exit IP on their own lines,
+     * which wrap and truncate far better than one packed sentence. The JNI
+     * counter read runs on the executor, the re-post on the main thread; a
+     * generation change between the two means the tunnel these numbers
+     * describe is already gone, and the update is dropped.
      */
     private val notificationStatsUpdate = object : Runnable {
         override fun run() {
@@ -408,14 +413,29 @@ class MikuVpnService : VpnService(), ServiceControl {
 
     private fun maybeRefreshExitIp(request: Int) {
         val now = SystemClock.elapsedRealtime()
-        if (now - exitIpFetchedAt < EXIT_IP_REFRESH_MS) return
+        // While no reading exists the probe retries with exponential backoff
+        // (15 s, 30 s, 60 s, capped at the normal 5-minute refresh) so a slow
+        // start - the core still warming up, one endpoint hanging - recovers
+        // on its own instead of leaving the IP line blank for five minutes.
+        val cooldown = if (exitIpDisplay == null) {
+            minOf(EXIT_IP_RETRY_MS shl exitIpFailures.coerceAtMost(4), EXIT_IP_REFRESH_MS)
+        } else {
+            EXIT_IP_REFRESH_MS
+        }
+        if (now - exitIpFetchedAt < cooldown) return
         exitIpFetchedAt = now
         statsScope.launch {
             // Through the tunnel: the probe exits where user traffic exits, and
             // it already knows how to race endpoints and tolerate one hanging.
             // A failed probe keeps the previous reading instead of blanking it.
             val fetched = runCatching { SpeedtestManager.getRemoteIPInfo(direct = false) }.getOrNull()
-            if (generation.get() == request && fetched != null) exitIpDisplay = fetched
+            if (generation.get() != request) return@launch
+            if (fetched != null) {
+                exitIpDisplay = fetched
+                exitIpFailures = 0
+            } else {
+                exitIpFailures++
+            }
         }
     }
 
@@ -438,11 +458,11 @@ class MikuVpnService : VpnService(), ServiceControl {
                     sample.upBps.toSpeedString(),
                     sample.downBps.toSpeedString(),
                 ),
-                bigText = getString(
-                    R.string.vpn_notification_stats,
-                    traffic.uploadTotal.toTrafficString(),
-                    traffic.downloadTotal.toTrafficString(),
-                    exitIpDisplay ?: "…",
+                statsLines = listOf(
+                    getString(R.string.vpn_notification_session,
+                        traffic.uploadTotal.toTrafficString(),
+                        traffic.downloadTotal.toTrafficString()),
+                    getString(R.string.vpn_notification_exit_ip, exitIpDisplay ?: "…"),
                 ),
             ),
         )
@@ -646,7 +666,7 @@ class MikuVpnService : VpnService(), ServiceControl {
 
     private fun buildNotification(
         contentText: String = getString(R.string.vpn_notification_running),
-        bigText: String? = null,
+        statsLines: List<String>? = null,
     ): Notification {
         val stopIntent = PendingIntent.getService(
             this,
@@ -665,7 +685,13 @@ class MikuVpnService : VpnService(), ServiceControl {
             .setOngoing(true)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setPriority(NotificationCompat.PRIORITY_LOW)
-        if (bigText != null) builder.setStyle(NotificationCompat.BigTextStyle().bigText(bigText))
+        if (statsLines != null) {
+            // InboxStyle keeps every item on its own row, so a long IP string
+            // wraps inside its line instead of pushing the rest out of view.
+            val style = NotificationCompat.InboxStyle()
+            statsLines.forEach { style.addLine(it) }
+            builder.setStyle(style)
+        }
         return builder.build()
     }
 
@@ -728,6 +754,9 @@ class MikuVpnService : VpnService(), ServiceControl {
 
         /** Exit IP is a network probe; re-fetching it every beat would be wasteful. */
         private const val EXIT_IP_REFRESH_MS = 5 * 60_000L
+
+        /** First retry after a failed exit-IP probe; backs off from there. */
+        private const val EXIT_IP_RETRY_MS = 15_000L
 
         /** Where the platform points apps when the HTTP-proxy setting is on. */
         private const val HTTP_PROXY_HOST = "127.0.0.1"

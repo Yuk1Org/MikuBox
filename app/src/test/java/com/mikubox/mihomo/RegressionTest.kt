@@ -762,4 +762,29 @@ class RegressionTest {
             .putString("profiles", JSONArray().put(profile).toString()).commit()
         return MihomoProfileStore.profiles(context).single()
     }
+
+    @Test fun notificationSpeedFirstBeatReportsZeroes() {
+        // No baseline yet: the first sample after connect must not invent a rate.
+        val sample = com.mikubox.mihomo.service.notificationSpeed(0, 0, 0, 5_000, 9_000, 3_000)
+        assertEquals(0, sample.upBps)
+        assertEquals(0, sample.downBps)
+    }
+
+    @Test fun notificationSpeedDerivesRatesFromCounterDeltas() {
+        // 2 s window: up +3000 -> 1500/s, down +6000 -> 3000/s.
+        val sample = com.mikubox.mihomo.service.notificationSpeed(1_000, 2_000, 1_000, 4_000, 8_000, 3_000)
+        assertEquals(1_500, sample.upBps)
+        assertEquals(3_000, sample.downBps)
+    }
+
+    @Test fun notificationSpeedClampsCounterResetAndZeroWindow() {
+        // A core restart resets the counters; a negative delta is a reset, not a rate.
+        val reset = com.mikubox.mihomo.service.notificationSpeed(5_000, 5_000, 1_000, 4_000, 4_000, 2_000)
+        assertEquals(0, reset.upBps)
+        assertEquals(0, reset.downBps)
+        // Equal timestamps fall back to a 1 ms window instead of dividing by zero.
+        val same = com.mikubox.mihomo.service.notificationSpeed(100, 100, 1_000, 100, 100, 1_000)
+        assertEquals(0, same.upBps)
+        assertEquals(0, same.downBps)
+    }
 }

@@ -14,12 +14,17 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.ParcelFileDescriptor
+import android.os.SystemClock
 import androidx.core.app.NotificationCompat
 import com.miku.ray.contracts.ServiceControl
 import com.miku.ray.core.CoreServiceManager
+import com.miku.ray.extension.toSpeedString
+import com.miku.ray.extension.toTrafficString
+import com.miku.ray.handler.SpeedtestManager
 import com.miku.ray.handler.TrafficController
 import com.miku.ray.util.LogUtil
 import com.mikubox.mihomo.R
+import kotlinx.coroutines.launch
 import com.mikubox.mihomo.core.MihomoConfigStore
 import com.mikubox.mihomo.core.CoreOverrides
 import com.mikubox.mihomo.core.MihomoCore
@@ -76,6 +81,32 @@ class MikuVpnService : VpnService(), ServiceControl {
     private var startReplayQueued = false
 
     private val checkpointHandler = Handler(Looper.getMainLooper())
+
+    /**
+     * Live notification content: speed, session totals and the exit IP.
+     *
+     * [notificationStatsUpdate] samples the core's counters on the executor,
+     * derives a rate against the previous sample, and re-posts the foreground
+     * notification. The exit IP is probed far less often - it costs a network
+     * round trip per endpoint - and is cached between beats.
+     */
+    private val statsScope = kotlinx.coroutines.CoroutineScope(
+        kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO,
+    )
+
+    @Volatile
+    private var lastUpload = 0L
+
+    @Volatile
+    private var lastDownload = 0L
+
+    @Volatile
+    private var lastSampleAt = 0L
+
+    @Volatile
+    private var exitIpDisplay: String? = null
+
+    private var exitIpFetchedAt = 0L
 
     private var wakeLock: android.os.PowerManager.WakeLock? = null
     private val wakeLockLock = Any()
@@ -277,6 +308,14 @@ class MikuVpnService : VpnService(), ServiceControl {
                     // used to hear about MikuRay's own service.
                     CoreServiceManager.announceTunnelStarted(this@MikuVpnService)
                     TrafficController.start()
+                    // Fresh baselines for the notification's speed line, and the
+                    // first beat lands immediately so the readout is not blank.
+                    lastUpload = 0L
+                    lastDownload = 0L
+                    lastSampleAt = 0L
+                    exitIpDisplay = null
+                    exitIpFetchedAt = 0L
+                    checkpointHandler.post(notificationStatsUpdate)
                     checkpointHandler.post(rowTrafficRefresh)
                     checkpointHandler.post(trafficCheckpoint)
                     acquireWakeLock()
@@ -339,6 +378,76 @@ class MikuVpnService : VpnService(), ServiceControl {
         }
     }
 
+    /**
+     * Re-posts the foreground notification with live numbers.
+     *
+     * Collapsed, it shows the current up/down speed; expanded (BigTextStyle)
+     * adds the session totals and the exit IP. The JNI counter read runs on the
+     * executor, the notification re-post on the main thread; a generation
+     * change between the two means the tunnel these numbers describe is
+     * already gone, and the update is dropped.
+     */
+    private val notificationStatsUpdate = object : Runnable {
+        override fun run() {
+            if (!running) return
+            val request = generation.get()
+            startExecutor.execute {
+                if (generation.get() != request) return@execute
+                runCatching {
+                    val traffic = MihomoCore.traffic()
+                    maybeRefreshExitIp(request)
+                    checkpointHandler.post {
+                        if (generation.get() != request || !running) return@post
+                        updateStatsNotification(traffic, request)
+                    }
+                }
+            }
+            checkpointHandler.postDelayed(this, NOTIFICATION_STATS_INTERVAL_MS)
+        }
+    }
+
+    private fun maybeRefreshExitIp(request: Int) {
+        val now = SystemClock.elapsedRealtime()
+        if (now - exitIpFetchedAt < EXIT_IP_REFRESH_MS) return
+        exitIpFetchedAt = now
+        statsScope.launch {
+            // Through the tunnel: the probe exits where user traffic exits, and
+            // it already knows how to race endpoints and tolerate one hanging.
+            // A failed probe keeps the previous reading instead of blanking it.
+            val fetched = runCatching { SpeedtestManager.getRemoteIPInfo(direct = false) }.getOrNull()
+            if (generation.get() == request && fetched != null) exitIpDisplay = fetched
+        }
+    }
+
+    private fun updateStatsNotification(traffic: MihomoCore.Traffic, request: Int) {
+        val now = SystemClock.elapsedRealtime()
+        val sample = notificationSpeed(
+            lastUpload, lastDownload, lastSampleAt,
+            traffic.uploadTotal, traffic.downloadTotal, now,
+        )
+        if (generation.get() != request) return
+        lastUpload = traffic.uploadTotal
+        lastDownload = traffic.downloadTotal
+        lastSampleAt = now
+        val manager = getSystemService(NotificationManager::class.java) ?: return
+        manager.notify(
+            NOTIFICATION_ID,
+            buildNotification(
+                contentText = getString(
+                    R.string.vpn_notification_speeds,
+                    sample.upBps.toSpeedString(),
+                    sample.downBps.toSpeedString(),
+                ),
+                bigText = getString(
+                    R.string.vpn_notification_stats,
+                    traffic.uploadTotal.toTrafficString(),
+                    traffic.downloadTotal.toTrafficString(),
+                    exitIpDisplay ?: "…",
+                ),
+            ),
+        )
+    }
+
     private fun reportStartFailure(detail: String) {
         val message = detail.ifBlank { getString(R.string.mihomo_start_failed) }
         LogUtil.e(message = "VPN start failed: $message")
@@ -389,6 +498,7 @@ class MikuVpnService : VpnService(), ServiceControl {
         // Nothing left to poll once the core is going down, and a beat that
         // outlived the tunnel would keep asking a stopped core for counters.
         checkpointHandler.removeCallbacks(rowTrafficRefresh)
+        checkpointHandler.removeCallbacks(notificationStatsUpdate)
         if (hadTunnel) CoreServiceManager.announceTunnelStopped(this)
         checkpointHandler.removeCallbacks(trafficCheckpoint)
         releaseWakeLock()
@@ -534,25 +644,29 @@ class MikuVpnService : VpnService(), ServiceControl {
         )
     }
 
-    private fun buildNotification(): Notification {
+    private fun buildNotification(
+        contentText: String = getString(R.string.vpn_notification_running),
+        bigText: String? = null,
+    ): Notification {
         val stopIntent = PendingIntent.getService(
             this,
             0,
             Intent(this, MikuVpnService::class.java).setAction(vpnAction(packageName, ACTION_STOP)),
             pendingFlags(),
         )
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             // The monochrome silhouette renders cleanly in the status bar; the
             // full-colour launcher icon becomes an opaque blob there.
             .setSmallIcon(R.mipmap.ic_launcher_monochrome)
             .setContentTitle(getString(R.string.app_name))
-            .setContentText(getString(R.string.vpn_notification_running))
+            .setContentText(contentText)
             .setContentIntent(configurePendingIntent())
             .addAction(0, getString(R.string.vpn_action_stop), stopIntent)
             .setOngoing(true)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setPriority(NotificationCompat.PRIORITY_LOW)
-            .build()
+        if (bigText != null) builder.setStyle(NotificationCompat.BigTextStyle().bigText(bigText))
+        return builder.build()
     }
 
     private fun configurePendingIntent(): PendingIntent = PendingIntent.getActivity(
@@ -609,6 +723,12 @@ class MikuVpnService : VpnService(), ServiceControl {
         /** How often the running profile's row re-reads its totals. */
         private const val ROW_REFRESH_INTERVAL_MS = 3_000L
 
+        /** How often the foreground notification is re-posted with live numbers. */
+        private const val NOTIFICATION_STATS_INTERVAL_MS = 3_000L
+
+        /** Exit IP is a network probe; re-fetching it every beat would be wasteful. */
+        private const val EXIT_IP_REFRESH_MS = 5 * 60_000L
+
         /** Where the platform points apps when the HTTP-proxy setting is on. */
         private const val HTTP_PROXY_HOST = "127.0.0.1"
 
@@ -651,4 +771,22 @@ class MikuVpnService : VpnService(), ServiceControl {
             }
         }
     }
+}
+
+internal data class NotificationSpeedSample(val upBps: Long, val downBps: Long)
+
+/**
+ * Samples the core's cumulative counters against the previous beat to derive a
+ * per-second rate. Top level (not a method) so the arithmetic is unit-testable
+ * without standing up a Service. The first beat after connect reports zeroes
+ * because there is no baseline to diff against yet.
+ */
+internal fun notificationSpeed(
+    prevUp: Long, prevDown: Long, prevAt: Long,
+    nowUp: Long, nowDown: Long, nowAt: Long,
+): NotificationSpeedSample {
+    if (prevAt == 0L) return NotificationSpeedSample(0, 0)
+    val dtMs = (nowAt - prevAt).coerceAtLeast(1)
+    fun rate(delta: Long) = ((delta * 1000) / dtMs).coerceAtLeast(0)
+    return NotificationSpeedSample(rate(nowUp - prevUp), rate(nowDown - prevDown))
 }

@@ -129,7 +129,11 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // R8 shrinking only — proguard-rules.pro pins -dontobfuscate, and the
+            // JNI entry points are covered by the -keep rules. Obfuscation stays
+            // off so stack traces stay readable.
+            isMinifyEnabled = true
+            isShrinkResources = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

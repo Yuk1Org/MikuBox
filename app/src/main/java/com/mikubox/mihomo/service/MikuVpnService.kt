@@ -639,9 +639,16 @@ class MikuVpnService : VpnService(), ServiceControl {
 
         fun stop(context: Context) {
             ConnectionStatus.update(context, ConnectionStatus.Phase.DISCONNECTING)
-            context.startService(
-                Intent(context, MikuVpnService::class.java).setAction(vpnAction(context.packageName, ACTION_STOP))
-            )
+            // Background start restrictions (API 26+) can reject a startService
+            // from a non-visual entry point; a stop request that never lands
+            // would leave the tunnel up, so swallow the rejection rather than
+            // crash the caller — the notification stop button uses a
+            // PendingIntent and is exempt from the restriction.
+            runCatching {
+                context.startService(
+                    Intent(context, MikuVpnService::class.java).setAction(vpnAction(context.packageName, ACTION_STOP))
+                )
+            }
         }
     }
 }

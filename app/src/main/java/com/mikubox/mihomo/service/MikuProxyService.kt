@@ -127,7 +127,11 @@ class MikuProxyService : Service() {
         )
 
         fun stop(context: Context) {
-            context.startService(Intent(context, MikuProxyService::class.java).setAction(stopAction(context.packageName)))
+            // Same background-start restriction as MikuVpnService.stop: never
+            // let a rejected stop request crash a background caller.
+            runCatching {
+                context.startService(Intent(context, MikuProxyService::class.java).setAction(stopAction(context.packageName)))
+            }
         }
     }
 }

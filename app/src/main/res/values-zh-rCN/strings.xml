@@ -12,6 +12,8 @@
     <!-- VPN 通知、通知渠道与快捷开关磁贴。 -->
     <string name="vpn_channel_name">VPN 状态</string>
     <string name="vpn_notification_running">已连接</string>
+    <string name="vpn_notification_speeds">↑%1$s ↓%2$s</string>
+    <string name="vpn_notification_stats">本次连接 ↑%1$s ↓%2$s · 出口 %3$s</string>
     <string name="vpn_action_stop">停止</string>
     <string name="vpn_tile_title">MikuBox VPN</string>
     <string name="local_proxy_notification_running">本地 Mihomo 代理正在运行</string>

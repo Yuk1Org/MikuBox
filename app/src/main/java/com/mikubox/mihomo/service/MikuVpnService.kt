@@ -24,6 +24,7 @@ import com.miku.ray.handler.SpeedtestManager
 import com.miku.ray.handler.TrafficController
 import com.miku.ray.util.LogUtil
 import com.mikubox.mihomo.R
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import com.mikubox.mihomo.core.MihomoConfigStore
 import com.mikubox.mihomo.core.CoreOverrides
@@ -90,7 +91,7 @@ class MikuVpnService : VpnService(), ServiceControl {
      * notification. The exit IP is probed far less often - it costs a network
      * round trip per endpoint - and is cached between beats.
      */
-    private val statsScope = kotlinx.coroutines.CoroutineScope(
+    private var statsScope = kotlinx.coroutines.CoroutineScope(
         kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO,
     )
 
@@ -218,6 +219,26 @@ class MikuVpnService : VpnService(), ServiceControl {
         super.onDestroy()
     }
 
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        if (running) {
+            // The tunnel must not die with the task. On a stock system this
+            // foreground service survives the swipe untouched; shades whose
+            // "clean all" treats the removal as a kill trigger get the service
+            // re-asserted right here — the strongest defence an app has. If
+            // the process is killed regardless, START_STICKY reconnects it.
+            runCatching {
+                androidx.core.content.ContextCompat.startForegroundService(
+                    this,
+                    Intent(this, MikuVpnService::class.java),
+                )
+            }
+        } else {
+            // Nothing is being carried: the process is free for the cleaner.
+            stopSelf()
+        }
+    }
+
     override fun onRevoke() {
         // System or another VPN app revoked our permission.
         stopVpn()
@@ -226,6 +247,12 @@ class MikuVpnService : VpnService(), ServiceControl {
 
     private fun startVpn() {
         if (starting) return
+        // A stop cancels this scope, and the system may reuse this very
+        // instance for the next start before the destroy lands — recreate it
+        // or every notification probe would silently no-op.
+        statsScope = kotlinx.coroutines.CoroutineScope(
+            kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO,
+        )
         if (tunFd != MihomoCore.NO_TUN) {
             // A tunnel is still registered: either it already serves this request,
             // or a teardown that was asked for a moment ago is queued behind it.
@@ -574,6 +601,10 @@ class MikuVpnService : VpnService(), ServiceControl {
         stopping = true
         LogUtil.i(message = "stop requested")
         TrafficController.stop()
+        // The probe scope belongs to this service instance alone: cancelled
+        // here, the disconnected process holds nothing and stays free for the
+        // system's cleaners.
+        statsScope.cancel()
         stopCore()
         stopForegroundCompat()
         stopSelf()

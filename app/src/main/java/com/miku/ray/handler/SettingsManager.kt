@@ -142,7 +142,11 @@ object SettingsManager {
         val usedIds = HashSet<String>(rulesetList.size)
         var changed = false
         rulesetList.forEach { ruleset ->
-            val currentId = ruleset.id.trim()
+            // Gson fills fields reflectively and a hand-edited import can carry
+            // an explicit null, both bypassing the declared non-null default.
+            // The nullable cast keeps the empty branch real for R8, which would
+            // otherwise fold it away using the field's declared type.
+            val currentId = (ruleset.id as String?)?.trim().orEmpty()
             if (currentId.isEmpty() || !usedIds.add(currentId)) {
                 var replacement: String
                 do {

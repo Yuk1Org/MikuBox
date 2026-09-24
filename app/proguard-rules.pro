@@ -5,6 +5,22 @@
 -keep class moe.matsuri.nb4a.** { *;}
 -keep class com.yalantis.ucrop.UCropActivity { *; }
 
+# Gson builds these models reflectively. When R8 drops a model's constructor
+# (nothing in code calls it), Gson falls back to Unsafe.allocateInstance, which
+# never runs the constructor — Kotlin field defaults (an empty id, empty
+# lists) are then missing and null reaches code compiled for non-null. That is
+# how a fresh release install crashed at Application.onCreate
+# (RulesetItem.id.trim()) and how reflection-parsed results came back with
+# unset fields. Keep the constructors and the fields Gson fills.
+-keepclassmembers class com.miku.ray.dto.** {
+    <init>(...);
+    <fields>;
+}
+-keepclassmembers class com.miku.ray.ui.weather.** {
+    <init>(...);
+    <fields>;
+}
+
 # Clean Kotlin
 -assumenosideeffects class kotlin.jvm.internal.Intrinsics {
     static void checkParameterIsNotNull(java.lang.Object, java.lang.String);

@@ -693,10 +693,12 @@ class MikuVpnService : VpnService(), ServiceControl {
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setPriority(NotificationCompat.PRIORITY_LOW)
         if (statsLines != null) {
-            // InboxStyle keeps every item on its own row, so a long IP string
-            // wraps inside its line instead of pushing the rest out of view.
-            val style = NotificationCompat.InboxStyle()
-            statsLines.forEach { style.addLine(it) }
+            // BigTextStyle wraps long lines; InboxStyle's rows are single-line
+            // by design, so a long exit-IP line was always cut off with an
+            // ellipsis no matter how the lines were split. The speed line leads
+            // the body so the expanded view keeps showing it too.
+            val style = NotificationCompat.BigTextStyle()
+                .bigText((listOf(contentText) + statsLines).joinToString("\n"))
             builder.setStyle(style)
         }
         return builder.build()

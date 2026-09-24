@@ -471,6 +471,7 @@ Nama Paket — cuma bisa kalo kamu pake Xray TUN, routeOnly aktif, dan Android 1
     <string name="connection_test_error_status_code">Kode error: #%d</string>
     <string name="connection_connected">Udah konek. Tap buat tes</string>
     <string name="connection_not_connected">Gak konek</string>
+    <string name="connection_pending">Menghubungkan…</string>
     <string name="connection_runing_task_left">Tes berjalan: %s</string>
     <string name="connection_runing_tcping_task_left">TCPing: %s</string>
     <string name="connection_runing_real_delay_task_left">Real delay: %s</string>

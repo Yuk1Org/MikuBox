@@ -506,6 +506,7 @@ Package Name — only supported when using Xray TUN, routeOnly enabled, and Andr
     <string name="connection_test_error_status_code">Error code: #%d</string>
     <string name="connection_connected">Connected. Tap to test</string>
     <string name="connection_not_connected">Disconnected</string>
+    <string name="connection_pending">Connecting…</string>
     <string name="connection_runing_task_left">Running tests: %s</string>
     <string name="connection_runing_tcping_task_left">TCPing: %s</string>
     <string name="connection_runing_real_delay_task_left">Real delay: %s</string>

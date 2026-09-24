@@ -1455,6 +1455,12 @@ ShareConfigBottomSheet.OnShareOptionClickListener {
     }
 
     private fun startV2Ray() {
+        // A tap can land while the tunnel is already up but this screen has not
+        // heard about it — the process being killed with the connection on is
+        // the usual route: the sticky restart re-connects in the background and
+        // the screen still reports Disconnected, so the tap used to dead-click.
+        // Asking again lets the running service answer before anything starts.
+        mainViewModel.startListenBroadcast()
         if (MmkvManager.getSelectServer().isNullOrEmpty()) {
             // The mirror key can be stale right after an update or a restore,
             // before the home screen's resume-time re-sync has run; the app's
@@ -1475,6 +1481,10 @@ ShareConfigBottomSheet.OnShareOptionClickListener {
         }
 
         LauncherManager.startService(this)
+        // The service announces the outcome (success or failure) on its own;
+        // until that lands, show progress instead of leaving a tap looking
+        // dead while the core warms up.
+        setTestState(getString(R.string.connection_pending))
     }
 
     private fun setTestState(content: String?) {

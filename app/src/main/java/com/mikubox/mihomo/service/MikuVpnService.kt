@@ -193,6 +193,13 @@ class MikuVpnService : VpnService(), ServiceControl {
         if (!running && !starting) {
             startRequested = true
             startVpn()
+        } else if (!running) {
+            // A start is already in flight (typically the automatic reconnect
+            // after the process was killed with the tunnel up). Remember the
+            // request instead of dropping it: the user's tap must survive the
+            // in-flight attempt, including its failure — a silent drop here is
+            // what made the connect button look dead right after a kill.
+            startRequested = true
         }
         return START_STICKY
     }

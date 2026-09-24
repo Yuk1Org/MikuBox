@@ -480,6 +480,7 @@
     <string name="connection_test_error_status_code">错误代码：#%d</string>
     <string name="connection_connected">已连接。点击测试</string>
     <string name="connection_not_connected">未连接</string>
+    <string name="connection_pending">连接中…</string>
     <string name="connection_runing_task_left">运行测试：%s</string>
     <string name="connection_runing_tcping_task_left">TCPing：%s</string>
     <string name="connection_runing_real_delay_task_left">真实延迟：%s</string>

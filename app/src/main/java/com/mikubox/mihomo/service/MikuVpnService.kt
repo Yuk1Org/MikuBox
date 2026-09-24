@@ -111,6 +111,14 @@ class MikuVpnService : VpnService(), ServiceControl {
     /** Consecutive failed probes; drives the retry backoff while IP is unknown. */
     private var exitIpFailures = 0
 
+    /**
+     * Bumped whenever the reading is invalidated (a restart or a live switch):
+     * a probe launched before the switch must not write its pre-switch answer
+     * over the fresh measurement taken after it.
+     */
+    @Volatile
+    private var exitIpEpoch = 0
+
     private var wakeLock: android.os.PowerManager.WakeLock? = null
     private val wakeLockLock = Any()
 
@@ -326,6 +334,7 @@ class MikuVpnService : VpnService(), ServiceControl {
                     exitIpDisplay = null
                     exitIpFetchedAt = 0L
                     exitIpFailures = 0
+                    exitIpEpoch++
                     checkpointHandler.post(notificationStatsUpdate)
                     checkpointHandler.post(rowTrafficRefresh)
                     checkpointHandler.post(trafficCheckpoint)
@@ -420,23 +429,25 @@ class MikuVpnService : VpnService(), ServiceControl {
 
     private fun maybeRefreshExitIp(request: Int) {
         val now = SystemClock.elapsedRealtime()
-        // While no reading exists the probe retries with exponential backoff
-        // (15 s, 30 s, 60 s, capped at the normal 5-minute refresh) so a slow
-        // start - the core still warming up, one endpoint hanging - recovers
-        // on its own instead of leaving the IP line blank for five minutes.
+        // While no reading exists the probe retries quickly but not endlessly:
+        // right after a (re)start the first attempt usually lands in the core's
+        // warm-up window and fails, and a steep backoff would keep the exit
+        // line stale — or blank — for minutes while traffic flows fine. Failures
+        // retry at 15 s, then 30 s, capped there.
         val cooldown = if (exitIpDisplay == null) {
-            minOf(EXIT_IP_RETRY_MS shl exitIpFailures.coerceAtMost(4), EXIT_IP_REFRESH_MS)
+            notificationExitRetryMs(exitIpFailures)
         } else {
             EXIT_IP_REFRESH_MS
         }
         if (now - exitIpFetchedAt < cooldown) return
         exitIpFetchedAt = now
+        val epoch = exitIpEpoch
         statsScope.launch {
             // Through the tunnel: the probe exits where user traffic exits, and
             // it already knows how to race endpoints and tolerate one hanging.
             // A failed probe keeps the previous reading instead of blanking it.
             val fetched = runCatching { SpeedtestManager.getRemoteIPInfo(direct = false) }.getOrNull()
-            if (generation.get() != request) return@launch
+            if (generation.get() != request || epoch != exitIpEpoch) return@launch
             if (fetched != null) {
                 exitIpDisplay = fetched
                 exitIpFailures = 0
@@ -518,6 +529,7 @@ class MikuVpnService : VpnService(), ServiceControl {
         exitIpDisplay = null
         exitIpFetchedAt = 0L
         exitIpFailures = 0
+        exitIpEpoch++
         checkpointHandler.post(notificationStatsUpdate)
     }
 
@@ -780,12 +792,6 @@ class MikuVpnService : VpnService(), ServiceControl {
         /** How often the foreground notification is re-posted with live numbers. */
         private const val NOTIFICATION_STATS_INTERVAL_MS = 3_000L
 
-        /** Exit IP is a network probe; re-fetching it every beat would be wasteful. */
-        private const val EXIT_IP_REFRESH_MS = 5 * 60_000L
-
-        /** First retry after a failed exit-IP probe; backs off from there. */
-        private const val EXIT_IP_RETRY_MS = 15_000L
-
         /** Where the platform points apps when the HTTP-proxy setting is on. */
         private const val HTTP_PROXY_HOST = "127.0.0.1"
 
@@ -856,6 +862,21 @@ internal fun notificationSpeed(
 
 /** The ISP segment is the notification's only dispensable part. */
 internal const val MAX_NOTIFICATION_ISP_LENGTH = 24
+
+/** Exit IP is a network probe; re-fetching it every beat would be wasteful. */
+internal const val EXIT_IP_REFRESH_MS = 5 * 60_000L
+
+internal const val EXIT_IP_RETRY_MS = 15_000L
+
+/**
+ * Retry delay for the notification's exit probe while the reading is missing:
+ * 15 s after the first failure (usually the core's warm-up window swallowing
+ * the attempt right after a connect or a node switch), 30 s from the second on,
+ * capped there — traffic keeps flowing, so waiting minutes for a line is worse
+ * than a cheap probe every half minute. Top level so it is unit-testable.
+ */
+internal fun notificationExitRetryMs(failures: Int): Long =
+    EXIT_IP_RETRY_MS shl (failures - 1).coerceAtMost(1)
 
 /**
  * OEM shades tend to give a row one line and ellipsize its tail, so the

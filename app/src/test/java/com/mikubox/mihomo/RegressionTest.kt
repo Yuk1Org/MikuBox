@@ -799,4 +799,13 @@ class RegressionTest {
         assertEquals("🇭🇰 (HK) 203.0.113.7 · VH Global", compact("🇭🇰 (HK) 203.0.113.7 · VH Global"))
         assertEquals("203.0.113.7", compact("203.0.113.7"))
     }
+
+    @Test fun notificationExitRetryStaysNearTheWarmUpWindow() {
+        // The first attempt usually dies in the core's warm-up window; the
+        // retry must stay close behind it instead of backing off into minutes.
+        val retry = { failures: Int -> com.mikubox.mihomo.service.notificationExitRetryMs(failures) }
+        assertEquals(15_000L, retry(1))
+        assertEquals(30_000L, retry(2))
+        assertEquals(30_000L, retry(9))
+    }
 }

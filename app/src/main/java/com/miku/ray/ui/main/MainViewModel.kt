@@ -132,6 +132,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (!running) {
             markConnectionStopped()
         } else {
+            // The address the tunnel exits with is not the address the device
+            // used before it came up; keep the stale reading on screen and a
+            // slow measurement presents the DIRECT exit as the tunnel's. The
+            // service measures right after announcing the tunnel, so the blank
+            // moment is short and honest (see beginServerRestart for the same
+            // call on node switches).
+            _ipResultText.value = ""
             // The service measures on its own initiative (empty request id);
             // a stale id from a direct probe would make the UI drop that result.
             activeIpRequestId = null
@@ -492,7 +499,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private var ipRetryCount = 0
-    private val maxIpRetries = 2
+    // The first requests routinely land inside the core's warm-up window (the
+    // mixed inbound answers but the upstream handshakes fail), so the budget
+    // has to outlast it.
+    private val maxIpRetries = 5
 
     private fun doFetchCurrentIp() {
         // During a node-switch restart the readout is intentionally blank; any
@@ -504,11 +514,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             mainRepository.requestIp(requestId)
         } else {
             // No tunnel (and possibly no service) to measure through — probe
-            // the device's own connection directly instead.
+            // the device's own connection directly instead. Whichever probe
+            // finishes fills the readout: the guard at completion is "still
+            // disconnected", not a race against newer request ids, because
+            // concurrent fetches report the same direct exit anyway and a
+            // strict id match used to drop the only answer that arrived.
             directIpJob?.cancel()
             directIpJob = viewModelScope.launch(Dispatchers.IO) {
                 val ip = runCatching { SpeedtestManager.getRemoteIPInfo(direct = true) }.getOrNull()
-                if (!ip.isNullOrBlank() && requestId == activeIpRequestId && !isRunning.value) {
+                if (!ip.isNullOrBlank() && !isRunning.value) {
                     _ipResultText.value = ip
                     ipRetryCount = 0
                 }
@@ -842,13 +856,25 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
 
             is MainServiceEvent.MeasureIpResult -> {
-                if (if (activeIpRequestId != null) event.requestId == activeIpRequestId else
-                    event.requestId.isEmpty() || event.requestId == activeCurrentTestId || event.requestId == lastCurrentTestId
-                ) {
+                // The service already orders results per connection (epoch +
+                // sequence, last one wins), so the screen only refuses results
+                // that describe a test nobody is waiting for. An outstanding
+                // fetch id must NOT reject the others: the service announces a
+                // measurement of its own (empty id) on every tunnel start and
+                // every client registration, and a stale id from an earlier
+                // fetch used to swallow exactly those, freezing the readout on
+                // "unknown" until the user happened to trigger a fresh one.
+                val acceptedId = event.requestId == activeIpRequestId ||
+                    event.requestId.isEmpty() ||
+                    event.requestId == activeCurrentTestId ||
+                    event.requestId == lastCurrentTestId
+                if (acceptedId) {
                     if (isRunning.value && !event.ip.isNullOrBlank()) {
                         _ipResultText.value = event.ip
                         ipRetryCount = 0
                     }
+                } else {
+                    LogUtil.w(message = "Dropped an exit-IP result for an unknown request id")
                 }
             }
 

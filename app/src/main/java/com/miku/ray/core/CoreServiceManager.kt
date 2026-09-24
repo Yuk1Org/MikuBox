@@ -253,6 +253,11 @@ object CoreServiceManager {
         val sequence = ipSequence.incrementAndGet()
         backgroundScope.launch {
             val ip = runCatching { SpeedtestManager.getRemoteIPInfo() }.getOrNull()
+            if (ip.isNullOrBlank()) {
+                // The probe has its own failure logs; this marks the request
+                // that died with it, so a blank readout is attributable.
+                LogUtil.w(message = "Exit-IP measurement returned nothing (requestId=$requestId)")
+            }
             if (!ip.isNullOrBlank() && isRunning() && epoch == connectionEpoch.get() && sequence == ipSequence.get()) {
                 MessageUtil.sendMsg2UI(service, AppConfig.MSG_MEASURE_IP_SUCCESS, ip, requestId)
             }

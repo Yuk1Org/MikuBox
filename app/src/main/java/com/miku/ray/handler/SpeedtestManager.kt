@@ -105,7 +105,7 @@ object SpeedtestManager {
                 async(Dispatchers.IO) {
                     val candidate = runCatching {
                         val content = HttpUtil.getUrlContent(UrlContentRequest(
-                            url = endpoint, timeout = 3000, httpPort = httpPort,
+                            url = endpoint, timeout = PROBE_TIMEOUT_MS, httpPort = httpPort,
                             proxyUsername = proxyUsername, proxyPassword = proxyPassword,
                         )) ?: return@runCatching null
                         JsonUtil.fromJsonSafe(content, IPAPIInfo::class.java)
@@ -117,9 +117,14 @@ object SpeedtestManager {
                 }
             }
             // Once any endpoint answers (or none does within the window), the
-            // remaining probes are cancelled and their sockets abandoned.
-            val result = withTimeoutOrNull(3500L) { winner.await() }
+            // remaining probes are cancelled and their sockets abandoned. The
+            // window has to cover a proxy-chained round trip — loopback inbound,
+            // core dial, remote TLS — and a core that is still warming up
+            // refuses the first wave of connections, so 3s/3.5s used to report
+            // a failure that a retry a second later would not have seen.
+            val result = withTimeoutOrNull(PROBE_WINDOW_MS) { winner.await() }
             probes.forEach { it.cancel() }
+            if (result == null) LogUtil.w(message = "remote-IP probe window elapsed with no answer (direct=$direct, port=$httpPort)")
             result
         } ?: return null
         val (ipInfo, ip) = found
@@ -145,4 +150,10 @@ object SpeedtestManager {
         val ispSuffix = if (!isp.isNullOrBlank()) " · $isp" else ""
         return if (country.isNullOrBlank()) "$ip$ispSuffix" else "${flagPrefix}($country) $ip$ispSuffix"
     }
+
+    /** Per-endpoint budget; a proxy-chained TLS round trip needs more than a direct one. */
+    private const val PROBE_TIMEOUT_MS = 4_500
+
+    /** Whole-race budget: the window [PROBE_TIMEOUT_MS] plus hand-off slack. */
+    private const val PROBE_WINDOW_MS = 5_000L
 }

@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.VpnService
 import android.os.Handler
 import android.os.Looper
+import com.miku.ray.util.LogUtil
 
 /**
  * Public entry point for starting/stopping the VPN.
@@ -31,7 +32,15 @@ object VpnController {
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             )
         } else {
-            MikuVpnService.start(context)
+            runCatching { MikuVpnService.start(context) }.onFailure { error ->
+                // Tasker/widget callers run with no background-start exemption:
+                // the platform rejects the service start, and both the crash it
+                // would raise here and a phase stuck on CONNECTING (the tile
+                // refuses taps then) are worse than reporting the failure.
+                ConnectionStatus.update(context, ConnectionStatus.Phase.DISCONNECTED)
+                LogUtil.w(message = "VPN start request rejected", throwable = error)
+                com.miku.ray.util.MessageUtil.sendMsg2UI(context, com.miku.ray.AppConfig.MSG_STATE_START_FAILURE, "")
+            }
         }
     }
 

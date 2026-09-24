@@ -802,10 +802,16 @@ class MikuVpnService : VpnService(), ServiceControl {
             // would leave the tunnel up, so swallow the rejection rather than
             // crash the caller — the notification stop button uses a
             // PendingIntent and is exempt from the restriction.
-            runCatching {
+            val delivered = runCatching {
                 context.startService(
                     Intent(context, MikuVpnService::class.java).setAction(vpnAction(context.packageName, ACTION_STOP))
                 )
+            }.isSuccess
+            if (!delivered) {
+                // Nobody will process the stop (usually there is no service at
+                // all), so leave the phase consistent: the quick-settings tile
+                // refuses taps while it shows a transition.
+                ConnectionStatus.update(context, ConnectionStatus.Phase.DISCONNECTED)
             }
         }
     }

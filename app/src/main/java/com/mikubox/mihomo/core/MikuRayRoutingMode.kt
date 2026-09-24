@@ -63,8 +63,10 @@ object MikuRayRoutingMode : MikuRouting.Impl {
 
     override fun mode(value: String): Boolean {
         val mode = MihomoCoreSettings.ProxyMode.entries.firstOrNull { it.value == value } ?: return false
-        if (com.miku.ray.MikuCoreBridge.isRunning() && !MihomoCore.setMode(value)) return false
+        val appliedLive = com.miku.ray.MikuCoreBridge.isRunning() && MihomoCore.setMode(value)
+        if (com.miku.ray.MikuCoreBridge.isRunning() && !appliedLive) return false
         MihomoCoreSettings.setMode(context, mode)
+        if (appliedLive) notifyTunnelRechosen(context)
         return true
     }
 
@@ -72,7 +74,20 @@ object MikuRayRoutingMode : MikuRouting.Impl {
         val profile = MihomoProfileStore.selected(context) ?: return false
         if (state().options.none { it.name == name }) return false
         if (profile.id == activeProfileId && com.miku.ray.MikuCoreBridge.isRunning() && !RoutingMode.selectGlobalExit(name)) return false
-        return prefs(context).edit().putString("exit:${profile.id}", name).commit()
+        val stored = prefs(context).edit().putString("exit:${profile.id}", name).commit()
+        if (profile.id == activeProfileId && com.miku.ray.MikuCoreBridge.isRunning()) notifyTunnelRechosen(context)
+        return stored
+    }
+
+    /**
+     * A live switch moves traffic to a different exit without touching the
+     * core's counters, so nothing else tells the notification: it kept quoting
+     * the previous node's exit until the five-minute TTL ran out. The refresh
+     * drops the cached reading and re-probes; the home screen's own measure
+     * path is already re-run by its selection-changed hook.
+     */
+    private fun notifyTunnelRechosen(context: Context) {
+        com.mikubox.mihomo.service.VpnController.refresh(context)
     }
 
     /** Called on the service's serialized core executor, before publishing connected state. */

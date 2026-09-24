@@ -469,7 +469,8 @@ class MikuVpnService : VpnService(), ServiceControl {
                     getString(R.string.vpn_notification_session,
                         traffic.uploadTotal.toTrafficString(),
                         traffic.downloadTotal.toTrafficString()),
-                    getString(R.string.vpn_notification_exit_ip, exitIpDisplay ?: "…"),
+                    getString(R.string.vpn_notification_exit_ip,
+                        exitIpDisplay?.let { compactExitIspForNotification(it) } ?: "…"),
                 ),
             ),
         )
@@ -510,6 +511,14 @@ class MikuVpnService : VpnService(), ServiceControl {
         if (tunFd == MihomoCore.NO_TUN) return
         releaseWakeLock()
         acquireWakeLock()
+        // A live routing/mode switch (or any setting the running tunnel adopts)
+        // can move the exit without touching the core's counters, so drop the
+        // cached reading: otherwise the notification keeps the previous node's
+        // exit for the remainder of the five-minute TTL.
+        exitIpDisplay = null
+        exitIpFetchedAt = 0L
+        exitIpFailures = 0
+        checkpointHandler.post(notificationStatsUpdate)
     }
 
     /** Tears the tunnel and the core down, leaving the service itself alive. */
@@ -661,13 +670,19 @@ class MikuVpnService : VpnService(), ServiceControl {
     private fun ensureChannel() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = getSystemService(NotificationManager::class.java) ?: return
+        // The importance of an existing channel is fixed at creation, and the
+        // original low-importance channel made several OEM shades render this
+        // notification as one collapsed row — the stats never showed. Move to
+        // a fresh default-importance channel: still silent (no sound), still
+        // no heads-up, but shades expand it instead of ellipsizing it.
+        manager.deleteNotificationChannel(LEGACY_CHANNEL_ID)
         if (manager.getNotificationChannel(CHANNEL_ID) != null) return
         manager.createNotificationChannel(
-            NotificationChannel(
-                CHANNEL_ID,
-                getString(R.string.vpn_channel_name),
-                NotificationManager.IMPORTANCE_LOW,
-            ).apply { setShowBadge(false) }
+            NotificationChannel(CHANNEL_ID, getString(R.string.vpn_channel_name), NotificationManager.IMPORTANCE_DEFAULT)
+                .apply {
+                    setShowBadge(false)
+                    setSound(null, null)
+                }
         )
     }
 
@@ -691,7 +706,10 @@ class MikuVpnService : VpnService(), ServiceControl {
             .addAction(0, getString(R.string.vpn_action_stop), stopIntent)
             .setOngoing(true)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            // The stats update every few seconds; the channel is audible-range
+            // (DEFAULT) so pin the alert to the first post only.
+            .setOnlyAlertOnce(true)
         if (statsLines != null) {
             // BigTextStyle wraps long lines; InboxStyle's rows are single-line
             // by design, so a long exit-IP line was always cut off with an
@@ -749,7 +767,8 @@ class MikuVpnService : VpnService(), ServiceControl {
 
         const val EXTRA_FAILURE_DETAIL = "failure_detail"
 
-        private const val CHANNEL_ID = "miku_vpn_status"
+        private const val LEGACY_CHANNEL_ID = "miku_vpn_status"
+        internal const val CHANNEL_ID = "miku_vpn_status_v2"
         private const val NOTIFICATION_ID = 1
 
         /** How often the running session's traffic is written into the profile's totals. */
@@ -833,4 +852,23 @@ internal fun notificationSpeed(
     val dtMs = (nowAt - prevAt).coerceAtLeast(1)
     fun rate(delta: Long) = ((delta * 1000) / dtMs).coerceAtLeast(0)
     return NotificationSpeedSample(rate(nowUp - prevUp), rate(nowDown - prevDown))
+}
+
+/** The ISP segment is the notification's only dispensable part. */
+internal const val MAX_NOTIFICATION_ISP_LENGTH = 24
+
+/**
+ * OEM shades tend to give a row one line and ellipsize its tail, so the
+ * identifying part of the exit (flag, country, IP) has to come first and the
+ * ISP name has to give way. The full ISP stays on the home screen's readout,
+ * which wraps freely. Top level so the splitting is unit-testable.
+ */
+internal fun compactExitIspForNotification(display: String): String {
+    val separator = " · "
+    val ispStart = display.indexOf(separator)
+    if (ispStart < 0) return display
+    val head = display.substring(0, ispStart)
+    val isp = display.substring(ispStart + separator.length)
+    if (isp.length <= MAX_NOTIFICATION_ISP_LENGTH) return display
+    return head + separator + isp.take(MAX_NOTIFICATION_ISP_LENGTH) + "…"
 }

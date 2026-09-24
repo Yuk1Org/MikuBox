@@ -787,4 +787,16 @@ class RegressionTest {
         assertEquals(0, same.upBps)
         assertEquals(0, same.downBps)
     }
+
+    @Test fun notificationKeepsExitHeadAndCapsOnlyTheIsp() {
+        val compact = { s: String -> com.mikubox.mihomo.service.compactExitIspForNotification(s) }
+        // A long ISP is the dispensable part: capped, while flag/country/IP stay whole.
+        val long = compact("🇭🇰 (HK) 203.0.113.7 · XXUltraMegaLongInternationalISPNameCompanyLimitedGroupHoldings")
+        assertTrue(long.startsWith("🇭🇰 (HK) 203.0.113.7 · "))
+        assertTrue(long.endsWith("…"))
+        assertTrue(long.length < "🇭🇰 (HK) 203.0.113.7 · XXUltraMegaLongInternationalISPNameCompanyLimitedGroupHoldings".length)
+        // A short ISP passes through untouched, and an exit without an ISP has none to cap.
+        assertEquals("🇭🇰 (HK) 203.0.113.7 · VH Global", compact("🇭🇰 (HK) 203.0.113.7 · VH Global"))
+        assertEquals("203.0.113.7", compact("203.0.113.7"))
+    }
 }

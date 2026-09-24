@@ -94,7 +94,7 @@ class MikuProxyService : Service() {
         stopSelf()
     }
 
-    private fun notification(): Notification = NotificationCompat.Builder(this, "miku_vpn_status")
+    private fun notification(): Notification = NotificationCompat.Builder(this, MikuVpnService.CHANNEL_ID)
         .setSmallIcon(R.mipmap.ic_launcher_monochrome)
         .setContentTitle(getString(R.string.app_name))
         .setContentText(getString(R.string.local_proxy_notification_running))
@@ -104,9 +104,9 @@ class MikuProxyService : Service() {
     private fun ensureChannel() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = getSystemService(NotificationManager::class.java)
-        if (manager.getNotificationChannel("miku_vpn_status") == null) {
+        if (manager.getNotificationChannel(MikuVpnService.CHANNEL_ID) == null) {
             manager.createNotificationChannel(
-                NotificationChannel("miku_vpn_status", getString(R.string.vpn_channel_name), NotificationManager.IMPORTANCE_LOW),
+                NotificationChannel(MikuVpnService.CHANNEL_ID, getString(R.string.vpn_channel_name), NotificationManager.IMPORTANCE_DEFAULT),
             )
         }
     }

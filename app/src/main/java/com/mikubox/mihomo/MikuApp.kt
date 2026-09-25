@@ -38,6 +38,19 @@ class MikuApp : com.miku.ray.AngApplication() {
             override fun mixedPort() = com.mikubox.mihomo.core.MihomoCoreSettings.listeningPort(this@MikuApp)
         }
         if (com.mikubox.mihomo.core.NativeProfileProbe.isProbeProcess(this)) return
+        // Alarms do not survive a reboot, so a tunnel that was up before it —
+        // or before the process was killed and never brought back — would stay
+        // down with the expectation still recorded. Re-arming here (every
+        // process start, from any entry point) hands it back to the guard,
+        // which restores the connection if it really is missing. A disconnect
+        // clears the expectation, so nothing here resurrects a stopped tunnel.
+        runCatching {
+            if (com.mikubox.mihomo.service.TunnelGuard.isExpected(this) &&
+                !com.mikubox.mihomo.service.MikuVpnService.running
+            ) {
+                com.mikubox.mihomo.service.TunnelGuard.schedule(this)
+            }
+        }
         // Scheduling does not gate the first frame. The home screen refreshes
         // its persisted profile mirror on IO when resumed, instead of parsing
         // every configuration here and repeating it on the main thread there.

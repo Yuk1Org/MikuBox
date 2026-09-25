@@ -224,6 +224,14 @@
         </service>
 
         <!--
+            The tunnel guard's alarm lands here. Explicit component (no action
+            filter), so only our own PendingIntent can reach it.
+        -->
+        <receiver
+            android:name=".service.TunnelGuardReceiver"
+            android:exported="false" />
+
+        <!--
             No boot receiver here: MikuRay's own is declared with the screens in
             :mikuray-ui, and it is the one the "Connect after device boot" switch
             drives. This app used to carry a second one with its own preference

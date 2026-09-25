@@ -185,6 +185,12 @@ class MikuVpnService : VpnService(), ServiceControl {
             vpnAction(packageName, ACTION_STOP) -> {
                 startRequested = false
                 startReplayQueued = false
+                // The one place a disconnect is a decision rather than an
+                // accident: the user asked for it, so the guard must let the
+                // tunnel stay down. A teardown the user did not ask for (the
+                // platform destroying the service, a failed start) keeps the
+                // expectation and the guard brings the connection back.
+                TunnelGuard.expectRunning(this, false)
                 stopVpn()
                 return START_NOT_STICKY
             }
@@ -282,7 +288,10 @@ class MikuVpnService : VpnService(), ServiceControl {
         val request = generation.incrementAndGet()
         MikuProxyService.stop(this)
         lastTunError = null
-        // The foreground notification must appear promptly; the heavy work runs after it.
+        // The foreground notification must appear promptly; the heavy work runs
+        // after it. A refusal (a background start without an exemption) is
+        // logged and the start continues — the tunnel can still come up, and
+        // the guard arms itself again for the next window.
         startForegroundNotification()
         startExecutor.execute {
             if (generation.get() != request) return@execute
@@ -355,6 +364,9 @@ class MikuVpnService : VpnService(), ServiceControl {
                             "(${AndroidVpnSettings.bypassLanRaw(this@MikuVpnService)})" +
                             ", apps=${AndroidVpnSettings.perAppMode(this@MikuVpnService)})",
                     )
+                    // From here on the tunnel must survive the process being
+                    // killed, so the guard starts watching it.
+                    TunnelGuard.expectRunning(this@MikuVpnService, true)
                     // The vendored screens hear about the tunnel the same way they
                     // used to hear about MikuRay's own service.
                     CoreServiceManager.announceTunnelStarted(this@MikuVpnService)
@@ -702,7 +714,13 @@ class MikuVpnService : VpnService(), ServiceControl {
 
     // region notification
 
-    private fun startForegroundNotification() {
+    /**
+     * Promotes the service to the foreground. Returns false when the platform
+     * refuses — a background start without an exemption (no battery-optimization
+     * allowance, or Doze) throws, and letting that escape used to crash the
+     * very restart that was supposed to bring the tunnel back.
+     */
+    private fun startForegroundNotification(): Boolean = runCatching {
         ensureChannel()
         val notification = buildNotification()
         if (Build.VERSION.SDK_INT >= 34) {
@@ -714,6 +732,10 @@ class MikuVpnService : VpnService(), ServiceControl {
         } else {
             startForeground(NOTIFICATION_ID, notification)
         }
+        true
+    }.getOrElse { error ->
+        LogUtil.w(message = "Could not promote the service to the foreground", throwable = error)
+        false
     }
 
     private fun ensureChannel() {
@@ -851,6 +873,9 @@ class MikuVpnService : VpnService(), ServiceControl {
         fun start(context: Context) {
             if (running) return
             ConnectionStatus.update(context, ConnectionStatus.Phase.CONNECTING)
+            // Throws when the platform refuses a background foreground-service
+            // start; callers include the guard's broadcast receiver, where an
+            // escaping exception would take the whole process down.
             androidx.core.content.ContextCompat.startForegroundService(
                 context,
                 Intent(context, MikuVpnService::class.java),

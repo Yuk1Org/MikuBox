@@ -66,8 +66,16 @@ object VpnController {
             if (!MikuVpnService.running) return@Runnable
             runCatching {
                 app.startService(
-                    Intent(app, MikuVpnService::class.java).setAction(MikuVpnService.ACTION_RESTART),
+                    // The full, package-qualified action: the service matches
+                    // vpnAction(...), so the bare suffix constant would be
+                    // delivered to a `when` that silently drops it.
+                    Intent(app, MikuVpnService::class.java)
+                        .setAction(MikuVpnService.vpnAction(app.packageName, MikuVpnService.ACTION_RESTART)),
                 )
+            }.onFailure {
+                // A rejected start used to vanish here, leaving the switch
+                // looking applied while the core kept the old configuration.
+                LogUtil.w(message = "Reload request could not reach the service", throwable = it)
             }
         }
         pendingRestart = request
@@ -80,7 +88,8 @@ object VpnController {
         val app = context.applicationContext
         runCatching {
             app.startService(
-                Intent(app, MikuVpnService::class.java).setAction(MikuVpnService.ACTION_REFRESH),
+                Intent(app, MikuVpnService::class.java)
+                    .setAction(MikuVpnService.vpnAction(app.packageName, MikuVpnService.ACTION_REFRESH)),
             )
         }
     }

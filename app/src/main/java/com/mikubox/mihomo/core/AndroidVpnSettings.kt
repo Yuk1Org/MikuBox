@@ -20,8 +20,11 @@ object AndroidVpnSettings {
     fun setKeepAwake(context: Context, enabled: Boolean) {
         MmkvManager.encodeSettings(AppConfig.PREF_KEEP_AWAKE, enabled)
         if (com.miku.ray.core.CoreServiceManager.isRunning()) {
+            // Package-qualified: the service's onStartCommand matches the full
+            // action, so the bare suffix would be dropped without a word.
             context.startService(android.content.Intent(context, com.mikubox.mihomo.service.MikuVpnService::class.java)
-                .setAction(com.mikubox.mihomo.service.MikuVpnService.ACTION_REFRESH))
+                .setAction(com.mikubox.mihomo.service.MikuVpnService.vpnAction(
+                    context.packageName, com.mikubox.mihomo.service.MikuVpnService.ACTION_REFRESH)))
         }
     }
 

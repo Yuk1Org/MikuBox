@@ -804,6 +804,7 @@ class RegressionTest {
         // The first attempt usually dies in the core's warm-up window; the
         // retry must stay close behind it instead of backing off into minutes.
         val retry = { failures: Int -> com.mikubox.mihomo.service.notificationExitRetryMs(failures) }
+        assertEquals(15_000L, retry(0))
         assertEquals(15_000L, retry(1))
         assertEquals(30_000L, retry(2))
         assertEquals(30_000L, retry(9))

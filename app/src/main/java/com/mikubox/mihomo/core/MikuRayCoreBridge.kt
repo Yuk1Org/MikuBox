@@ -63,6 +63,13 @@ object MikuRayCoreBridge : MikuCoreBridge.Impl {
     override fun restart(): Boolean {
         val context = MikuRayBridgeContext.application ?: return false
         if (!VpnController.isRunning) return false
+        // Reloading re-reads the selected profile, so the row the user picked on
+        // MikuRay's list has to reach MikuBox's store first — without this the
+        // tunnel restarts from the previous configuration and the switch looks
+        // like it never happened.
+        MikuRayProfileSync.selectedProfileId()?.let { guid ->
+            MihomoProfileStore.select(context, guid)
+        }
         // Restart produces new counters in the core just like start/stop, so
         // the delta tracker must start over or the next tick reads stale values.
         MihomoTrafficDelta.reset()

@@ -180,6 +180,7 @@ class MikuVpnService : VpnService(), ServiceControl {
         super<VpnService>.setUnderlyingNetworks(networks)
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        LogUtil.i(message = "service command action=${intent?.action} startId=$startId")
         when (intent?.action) {
             vpnAction(packageName, ACTION_STOP) -> {
                 startRequested = false
@@ -199,6 +200,11 @@ class MikuVpnService : VpnService(), ServiceControl {
                 return START_STICKY
             }
         }
+        // An unknown action means a sender and this service disagree about the
+        // action string (a bare suffix constant instead of vpnAction(...) is
+        // how the restart and refresh requests were silently dropped once
+        // before); say so instead of falling through to a no-op.
+        intent?.action?.let { LogUtil.w(message = "unhandled service action: $it") }
         if (!running && !starting) {
             startRequested = true
             startVpn()
@@ -907,7 +913,7 @@ internal const val EXIT_IP_RETRY_MS = 15_000L
  * than a cheap probe every half minute. Top level so it is unit-testable.
  */
 internal fun notificationExitRetryMs(failures: Int): Long =
-    EXIT_IP_RETRY_MS shl (failures - 1).coerceAtMost(1)
+    EXIT_IP_RETRY_MS shl (failures - 1).coerceIn(0, 1)
 
 /**
  * OEM shades tend to give a row one line and ellipsize its tail, so the

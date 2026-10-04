@@ -80,7 +80,7 @@ class RoutingModeView @JvmOverloads constructor(context: Context, attrs: Attribu
             textSize = 14f; setTextColor(textColor)
             maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END
             isClickable = true; isFocusable = true
-            setOnClickListener { showExits() }
+            setOnClickListener { showPicker() }
             visibility = GONE
         }
         column.addView(exit, LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, 0))
@@ -89,7 +89,7 @@ class RoutingModeView @JvmOverloads constructor(context: Context, attrs: Attribu
                 cancelAnimation()
                 indicator.layoutParams = indicator.layoutParams.apply { width = (r - l) / 3 }
                 indicator.translationX = targetX(state.mode)
-                setExpanded(state.mode == "global", false)
+                setExpanded(opensPicker(state.mode), false)
             }
         }
     }
@@ -108,15 +108,23 @@ class RoutingModeView @JvmOverloads constructor(context: Context, attrs: Attribu
 
     fun render(value: MikuRouting.State) {
         state = value
-        exit.text = value.exit ?: context.getString(R.string.mihomo_select_exit)
-        exit.contentDescription = context.getString(R.string.mihomo_global_exit, exit.text)
+        // Rule mode routes by the config's own rules, so the second row offers
+        // the strategy groups those rules name; global mode's row stays the
+        // GLOBAL exit. Direct names no proxy at all and keeps the row folded.
+        exit.text = if (value.mode == "global") value.exit ?: context.getString(R.string.mihomo_select_exit)
+        else context.getString(R.string.mihomo_groups_entry)
+        exit.contentDescription = if (value.mode == "global") context.getString(R.string.mihomo_global_exit, exit.text)
+        else context.getString(R.string.mihomo_groups_entry)
         val first = shownMode == null
         if (shownMode != value.mode) transition(value.mode, !first)
     }
 
+    /** Direct mode has no proxies in play, so only the modes above it unfold. */
+    private fun opensPicker(mode: String) = mode != "direct"
+
     private fun chooseMode(mode: String) {
         if (state.mode == mode) {
-            if (mode == "global") showExits()
+            if (opensPicker(mode)) showPicker()
             return
         }
         if (MikuRouting.impl?.mode(mode) != true) { failure(); return }
@@ -144,7 +152,7 @@ class RoutingModeView @JvmOverloads constructor(context: Context, attrs: Attribu
         }
         if (!animate || track.width == 0) {
             indicator.translationX = targetX(mode)
-            setExpanded(mode == "global", false)
+            setExpanded(opensPicker(mode), false)
             return
         }
         val token = generation
@@ -154,7 +162,7 @@ class RoutingModeView @JvmOverloads constructor(context: Context, attrs: Attribu
             addUpdateListener { indicator.translationX = it.animatedValue as Float }
             addListener(object : AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: Animator) {
-                    if (token == generation) setExpanded(mode == "global", true)
+                    if (token == generation) setExpanded(opensPicker(mode), true)
                 }
             })
             start()
@@ -191,21 +199,16 @@ class RoutingModeView @JvmOverloads constructor(context: Context, attrs: Attribu
         }
     }
 
+    private fun showPicker() {
+        if (state.mode == "global") showExits() else showGroups()
+    }
+
     private fun showExits() {
         val current = MikuRouting.impl?.state() ?: return
         render(current)
         if (current.options.isEmpty()) { failure(); return }
-        picker?.dismiss()
-        // Resolve from the host page: the dialog overlay can supply different
-        // default list/checkmark colours, especially for custom/dynamic themes.
-        val host = context.getActivity() ?: context
-        val foreground = host.getColorAttr(com.google.android.material.R.attr.colorOnSurface)
-        val dialogBackground = com.google.android.material.shape.MaterialShapeDrawable(
-            com.google.android.material.shape.ShapeAppearanceModel.builder()
-                .setAllCornerSizes(dp(28).toFloat()).build(),
-        ).apply { fillColor = ColorStateList.valueOf(host.getColorAttr("colorCard")) }
-        val panel = ExitPickerPanel(
-            host,
+        present(R.string.mihomo_choose_exit, ExitPickerPanel(
+            context.getActivity() ?: context,
             current,
             ExitRegion.measuredRegions(),
         ) { option ->
@@ -215,12 +218,34 @@ class RoutingModeView @JvmOverloads constructor(context: Context, attrs: Attribu
                 MikuRouting.impl?.state()?.let(::render)
                 picker?.dismiss()
             } else failure()
-        }
+        })
+    }
+
+    /**
+     * The strategy groups of the active profile. It is the rule-mode counterpart
+     * of the exit picker: a subscription's own groups with their members, where
+     * the selection each group routes by is made.
+     */
+    private fun showGroups() {
+        present(R.string.mihomo_groups_entry, ProxyGroupPanel(context.getActivity() ?: context))
+    }
+
+    /** Shared dialog chrome: host theme, rounded card, and a bounded list height. */
+    private fun present(title: Int, panel: View) {
+        picker?.dismiss()
+        // Resolve from the host page: the dialog overlay can supply different
+        // default list/checkmark colours, especially for custom/dynamic themes.
+        val host = context.getActivity() ?: context
+        val foreground = host.getColorAttr(com.google.android.material.R.attr.colorOnSurface)
+        val dialogBackground = com.google.android.material.shape.MaterialShapeDrawable(
+            com.google.android.material.shape.ShapeAppearanceModel.builder()
+                .setAllCornerSizes(dp(28).toFloat()).build(),
+        ).apply { fillColor = ColorStateList.valueOf(host.getColorAttr("colorCard")) }
         picker = MaterialAlertDialogBuilder(host)
             .setBackground(dialogBackground)
             .setBackgroundInsetTop(0)
             .setBackgroundInsetBottom(0)
-            .setTitle(R.string.mihomo_choose_exit)
+            .setTitle(title)
             .setView(panel)
             .setNegativeButton(android.R.string.cancel, null).showBlur().also { dialog ->
                 // Measure the complete dialog with a height ceiling. A fixed

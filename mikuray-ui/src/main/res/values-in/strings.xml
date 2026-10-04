@@ -1563,6 +1563,13 @@ yang kamu butuhin."</string>
     <string name="mihomo_section_vpn_routing">Routing &amp; split tunneling</string>
     <string name="mihomo_section_vpn_tun">Antarmuka TUN</string>
     <string name="mihomo_select_exit">Pilih proxy</string>
+    <string name="mihomo_groups_entry">Grup proksi</string>
+    <string name="mihomo_groups_empty">Profil ini tidak punya grup proksi</string>
+    <string name="mihomo_groups_unlisted">Anggota grup ini berasal dari penyedia — muncul setelah tersambung</string>
+    <string name="mihomo_groups_offline">Belum tersambung: menampilkan anggota yang dideklarasikan profil. Pilihan berlaku saat tersambung.</string>
+    <string name="mihomo_groups_test">Uji latensi</string>
+    <string name="mihomo_groups_sort">Urutkan menurut latensi</string>
+    <string name="mihomo_groups_auto">Otomatis</string>
     <string name="mihomo_setting_allow_lan">Izinkan LAN · allow-lan</string>
     <string name="mihomo_setting_disable_keep_alive">Nonaktifkan keep-alive · disable-keep-alive</string>
     <string name="mihomo_setting_dns_cache_algorithm">Algoritma cache DNS · dns.cache-algorithm</string>

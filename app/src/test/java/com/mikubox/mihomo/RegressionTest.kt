@@ -680,6 +680,70 @@ class RegressionTest {
         assertEquals("rule", routing.state().mode)
     }
 
+    @Test fun offlineGroupsListDeclaredMembersAndDefaultSelection() {
+        MikuRayBridgeContext.attach(context)
+        context.getSharedPreferences("mihomo_profiles", 0).edit().clear().commit()
+        context.getSharedPreferences("mihomo_routing_choices", 0).edit().clear().commit()
+        MihomoProfileStore.create(context, "Sub", """
+            proxies:
+              - {name: Tokyo, type: socks5, server: 127.0.0.1, port: 11080}
+              - {name: Osaka, type: socks5, server: 127.0.0.1, port: 11080}
+            proxy-groups:
+              - {name: GLOBAL, type: select, proxies: [Pick, Tokyo, Osaka]}
+              - {name: Pick, type: select, proxies: [Auto, Tokyo, Osaka, DIRECT]}
+              - {name: Auto, type: url-test, proxies: [Tokyo, Osaka], url: "http://x/generate_204"}
+              - {name: Provider, type: select, use: [airport]}
+            rules: [MATCH,Pick]
+        """.trimIndent())
+        val groups = com.mikubox.mihomo.core.MikuRayRoutingMode.groups()
+        // GLOBAL belongs to global mode's own row, not to the strategy groups.
+        assertEquals(listOf("Pick", "Auto", "Provider"), groups.map { it.name })
+        // A member that names another group is marked as one; a selector falls
+        // back to its first member, which is what the core would use.
+        assertEquals(listOf("Auto", "Tokyo", "Osaka", "DIRECT"), groups[0].members.map { it.name })
+        assertTrue(groups[0].members.first().group)
+        assertEquals("Auto", groups[0].selected)
+        assertFalse(groups[0].automatic)
+        // An automatic group decides at runtime: no member is claimed as chosen.
+        assertTrue(groups[1].automatic)
+        assertNull(groups[1].selected)
+        // `use:` members live in a provider the app cannot read without a core.
+        assertTrue(groups[2].members.isEmpty())
+    }
+
+    @Test fun chosenGroupMemberIsPerProfileAndOnlyAutomaticGroupsGoBackToAutomatic() {
+        MikuRayBridgeContext.attach(context)
+        context.getSharedPreferences("mihomo_profiles", 0).edit().clear().commit()
+        context.getSharedPreferences("mihomo_routing_choices", 0).edit().clear().commit()
+        val yaml = """
+            proxies:
+              - {name: Tokyo, type: socks5, server: 127.0.0.1, port: 11080}
+              - {name: Osaka, type: socks5, server: 127.0.0.1, port: 11080}
+            proxy-groups:
+              - {name: Pick, type: select, proxies: [Tokyo, Osaka]}
+              - {name: Auto, type: url-test, proxies: [Tokyo, Osaka]}
+            rules: [MATCH,Pick]
+        """.trimIndent()
+        val routing = com.mikubox.mihomo.core.MikuRayRoutingMode
+        val first = MihomoProfileStore.create(context, "First", yaml)
+        assertTrue(routing.selectGroupMember("Pick", "Osaka"))
+        assertEquals("Osaka", routing.groups().first { it.name == "Pick" }.selected)
+        assertFalse(routing.selectGroupMember("Pick", "Missing"))
+        assertFalse(routing.selectGroupMember("Unknown", "Osaka"))
+        // A selector always points at a member: there is no automatic to fall back to.
+        assertFalse(routing.selectGroupMember("Pick", ""))
+        assertTrue(routing.selectGroupMember("Auto", "Tokyo"))
+        assertTrue(routing.groups().first { it.name == "Auto" }.pinned)
+        assertTrue(routing.selectGroupMember("Auto", ""))
+        assertNull(routing.groups().first { it.name == "Auto" }.selected)
+        // The choice is scoped to the profile that made it.
+        val second = MihomoProfileStore.create(context, "Second", yaml)
+        MihomoProfileStore.select(context, second.id)
+        assertEquals("Tokyo", routing.groups().first { it.name == "Pick" }.selected)
+        MihomoProfileStore.select(context, first.id)
+        assertEquals("Osaka", routing.groups().first { it.name == "Pick" }.selected)
+    }
+
     @Test fun malformedLaterStoreDoesNotOverwriteEarlierStore() {
         val prefs = context.getSharedPreferences("miku_app_settings", 0)
         prefs.edit().putString("sentinel", "original").commit()

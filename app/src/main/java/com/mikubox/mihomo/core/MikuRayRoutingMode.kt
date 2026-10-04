@@ -34,6 +34,131 @@ object MikuRayRoutingMode : MikuRouting.Impl {
         Yaml(SafeConstructor(LoaderOptions())).load<Any>(config) as? Map<*, *> ?: emptyMap<Any, Any>()
     }.getOrDefault(emptyMap<Any, Any>())
 
+    /**
+     * The strategy groups of the profile, live from the core or from the stored
+     * YAML when it is not running. `GLOBAL` is not one of them: it is the exit
+     * of global mode, and the mode bar's own row already selects it.
+     */
+    override fun groups(): List<MikuRouting.Group> {
+        val profile = MihomoProfileStore.selected(context) ?: return emptyList()
+        val live = profile.id == activeProfileId && com.miku.ray.MikuCoreBridge.isRunning()
+        return if (live) liveGroups() else offlineGroups(profile)
+    }
+
+    private fun liveGroups(): List<MikuRouting.Group> {
+        val proxies = MihomoCore.proxies()
+        // The core reports its own document order; anything it did not list
+        // (a group added by a provider) keeps the map's order behind it.
+        val ordered = (MihomoCore.groupOrder() + proxies.keys).distinct()
+        return ordered.mapNotNull { name ->
+            val proxy = proxies[name] ?: return@mapNotNull null
+            if (name == MihomoCore.GLOBAL_GROUP || !proxy.isGroup) return@mapNotNull null
+            val pinned = proxy.fixed?.takeIf { it.isNotBlank() }
+            MikuRouting.Group(
+                name = name,
+                type = proxy.type,
+                members = proxy.all.mapNotNull { member ->
+                    proxies[member]?.takeIf { member != name }
+                        ?.let { MikuRouting.Exit(it.name, it.isGroup, it.delay, it.type) }
+                },
+                selected = (pinned ?: proxy.now)?.takeIf { it.isNotBlank() },
+                automatic = !proxy.isSelector,
+                pinned = pinned != null,
+            )
+        }
+    }
+
+    private fun offlineGroups(profile: MihomoProfileStore.Profile): List<MikuRouting.Group> {
+        val declared = declaredGroups(profile.config)
+        val groupNames = declared.map { it.name }.toSet()
+        return declared.map { group ->
+            // A stored choice is per profile and per group; it is what the
+            // service re-applies on the next start, so it is the selection the
+            // panel has to show while the core is stopped.
+            val stored = prefs(context)
+                .getString(groupKey(profile.id, group.name), null)
+                ?.takeIf { member -> member.isNotEmpty() && member in group.members }
+            val automatic = group.type.lowercase() in AUTOMATIC_TYPES
+            MikuRouting.Group(
+                name = group.name,
+                type = group.type,
+                members = group.members.map { member ->
+                    MikuRouting.Exit(member, group = member in groupNames)
+                },
+                // Without a stored choice a selector uses its first member, which
+                // is what the core itself would do with the config.
+                selected = stored ?: group.members.firstOrNull()?.takeIf { !automatic },
+                automatic = automatic,
+                pinned = stored != null,
+            )
+        }
+    }
+
+    private data class DeclaredGroup(val name: String, val type: String, val members: List<String>)
+
+    /**
+     * `proxy-groups` as the profile declares them. `use:` pulls members from
+     * proxy providers, which only a running core can resolve, so those groups
+     * list no members offline — the panel says so rather than inventing names.
+     */
+    private fun declaredGroups(config: String): List<DeclaredGroup> =
+        (parse(config)["proxy-groups"] as? List<*>).orEmpty().mapNotNull { entry ->
+            val map = entry as? Map<*, *> ?: return@mapNotNull null
+            val name = (map["name"] as? String)?.takeIf { it.isNotBlank() && it != MihomoCore.GLOBAL_GROUP }
+                ?: return@mapNotNull null
+            DeclaredGroup(
+                name = name,
+                type = (map["type"] as? String).orEmpty(),
+                members = (map["proxies"] as? List<*>).orEmpty().mapNotNull { it as? String }
+                    .filter { it.isNotBlank() },
+            )
+        }
+
+    override fun selectGroupMember(group: String, member: String): Boolean {
+        val profile = MihomoProfileStore.selected(context) ?: return false
+        val known = groups().firstOrNull { it.name == group } ?: return false
+        // An empty member means "back to automatic", which only an automatic
+        // group can honour: a selector always has a chosen member.
+        if (member.isEmpty() && !known.automatic) return false
+        if (member.isNotEmpty() && known.members.isNotEmpty() && known.members.none { it.name == member }) return false
+        val live = profile.id == activeProfileId && com.miku.ray.MikuCoreBridge.isRunning()
+        if (live && !MihomoCore.selectProxy(group, member)) return false
+        val key = groupKey(profile.id, group)
+        val stored = if (member.isEmpty()) prefs(context).edit().remove(key).commit()
+        else prefs(context).edit().putString(key, member).commit()
+        if (live) notifyTunnelRechosen(context)
+        // Live the core already carries the change; offline the stored choice
+        // is the whole of it and the service applies it when the tunnel starts.
+        return if (live) true else stored
+    }
+
+    override fun delay(name: String): Int {
+        if (!com.miku.ray.MikuCoreBridge.isRunning()) return -1
+        return MihomoCore.delay(name, MihomoCoreSettings.testUrl(context), DELAY_TIMEOUT_MS)
+    }
+
+    private fun groupKey(profileId: String, group: String) = "group:$profileId:$group"
+
+    /**
+     * Re-applies the member each group was left on. The core starts from the
+     * profile's own defaults, so without this a choice made while stopped would
+     * look saved but never reach the tunnel. Groups or members that are gone
+     * with the new config drop their stale choice instead of failing silently.
+     */
+    private fun applyStoredGroupChoices(profileId: String) {
+        prefs(context).all.forEach { (key, value) ->
+            val prefix = "group:$profileId:"
+            if (!key.startsWith(prefix)) return@forEach
+            val group = key.removePrefix(prefix)
+            val member = value as? String ?: return@forEach
+            if (member.isEmpty()) return@forEach
+            if (!MihomoCore.selectProxy(group, member)) {
+                prefs(context).edit().remove(key).apply()
+                LogUtil.w(message = "Saved group member is no longer available: $group → $member")
+            }
+        }
+    }
+
     override fun state(): MikuRouting.State {
         val profile = MihomoProfileStore.selected(context)
         val config = profile?.config.orEmpty()
@@ -108,6 +233,7 @@ object MikuRayRoutingMode : MikuRouting.Impl {
         MihomoCoreSettings.mode(context).value?.let { MihomoCore.setMode(it) }
         activeProfileId = profileId
         if (profileId == null) return
+        applyStoredGroupChoices(profileId)
         val name = prefs(context).getString("exit:$profileId", null) ?: return
         if (!RoutingMode.selectGlobalExit(name)) {
             // Removed/changed provider nodes must not leave a stale apparent selection.
@@ -115,4 +241,10 @@ object MikuRayRoutingMode : MikuRouting.Impl {
             LogUtil.w(message = "Saved global exit is no longer available: $name")
         }
     }
+
+    /** Groups whose member is chosen by the core unless it is pinned. */
+    private val AUTOMATIC_TYPES = setOf("url-test", "fallback", "load-balance", "relay")
+
+    /** One probe's budget: the app's own default for a node measurement. */
+    private const val DELAY_TIMEOUT_MS = 5000
 }

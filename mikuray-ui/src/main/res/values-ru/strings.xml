@@ -1576,6 +1576,13 @@
     <string name="mihomo_section_vpn_routing">Маршрутизация и раздельное туннелирование</string>
     <string name="mihomo_section_vpn_tun">Интерфейс TUN</string>
     <string name="mihomo_select_exit">Выбрать прокси</string>
+    <string name="mihomo_groups_entry">Группы прокси</string>
+    <string name="mihomo_groups_empty">В этом профиле нет групп прокси</string>
+    <string name="mihomo_groups_unlisted">Участники этой группы берутся из провайдера — они появятся после подключения</string>
+    <string name="mihomo_groups_offline">Нет подключения: показаны участники, объявленные в профиле. Выбор применится при подключении.</string>
+    <string name="mihomo_groups_test">Проверить задержку</string>
+    <string name="mihomo_groups_sort">Сортировать по задержке</string>
+    <string name="mihomo_groups_auto">Автоматически</string>
     <string name="mihomo_setting_allow_lan">Разрешить LAN · allow-lan</string>
     <string name="mihomo_setting_disable_keep_alive">Отключить keep-alive · disable-keep-alive</string>
     <string name="mihomo_setting_dns_cache_algorithm">Алгоритм кэша DNS · dns.cache-algorithm</string>

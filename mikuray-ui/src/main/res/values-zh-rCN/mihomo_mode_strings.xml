@@ -14,4 +14,11 @@
     <string name="mihomo_mode_failed">无法应用选择，请检查当前配置。</string>
     <string name="mihomo_mode_selected">已选中</string>
     <string name="mihomo_select_exit">选择代理</string>
+    <string name="mihomo_groups_entry">代理组</string>
+    <string name="mihomo_groups_empty">当前配置没有代理组</string>
+    <string name="mihomo_groups_unlisted">此组的成员来自提供者，连接后显示</string>
+    <string name="mihomo_groups_offline">未连接：以下为配置声明的成员，选择会在连接后生效。</string>
+    <string name="mihomo_groups_test">测速</string>
+    <string name="mihomo_groups_sort">按延迟排序</string>
+    <string name="mihomo_groups_auto">自动选择</string>
 </resources>

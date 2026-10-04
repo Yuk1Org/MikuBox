@@ -72,6 +72,17 @@ object MihomoCoreSettings {
     fun unifiedDelay(context: Context): Boolean = prefs(context).getBoolean(KEY_UNIFIED_DELAY, false)
     fun setUnifiedDelay(context: Context, value: Boolean) = putBool(context, KEY_UNIFIED_DELAY, value)
 
+    /**
+     * The latency-test URL in effect: the home card's `pref_delay_test_url` when
+     * the user set one, else the app's own default. Deliberately NOT
+     * `SettingsManager.getDelayTestUrl()`'s gstatic fallback, so users who
+     * configured nothing keep the app's measurement conditions.
+     */
+    fun testUrl(context: Context): String =
+        com.miku.ray.handler.MmkvManager.decodeSettingsString(com.miku.ray.AppConfig.PREF_DELAY_TEST_URL)
+            ?.trim()?.takeIf { it.isNotEmpty() }
+            ?: DEFAULT_TEST_URL
+
     fun tcpConcurrent(context: Context): Boolean = prefs(context).getBoolean(KEY_TCP_CONCURRENT, false)
     fun setTcpConcurrent(context: Context, value: Boolean) = putBool(context, KEY_TCP_CONCURRENT, value)
 

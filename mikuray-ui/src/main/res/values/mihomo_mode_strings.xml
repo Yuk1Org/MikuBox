@@ -14,4 +14,11 @@
     <string name="mihomo_mode_failed">Unable to apply selection. Check the active profile.</string>
     <string name="mihomo_mode_selected">Selected</string>
     <string name="mihomo_select_exit">Select proxy</string>
+    <string name="mihomo_groups_entry">Proxy groups</string>
+    <string name="mihomo_groups_empty">This profile declares no proxy groups</string>
+    <string name="mihomo_groups_unlisted">This group\'s members come from a provider; they appear once connected</string>
+    <string name="mihomo_groups_offline">Not connected: showing the members the profile declares. A choice applies when you connect.</string>
+    <string name="mihomo_groups_test">Test latency</string>
+    <string name="mihomo_groups_sort">Sort by latency</string>
+    <string name="mihomo_groups_auto">Automatic</string>
 </resources>

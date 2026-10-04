@@ -356,6 +356,9 @@ class ProxyGroupPanel(context: Context) : LinearLayout(context) {
                 null,
             )
             setOnClickListener { onClick() }
+            // The group the list belongs to is only implied by colour otherwise;
+            // carry it as a real state, the way the mode tabs do.
+            ViewCompat.setStateDescription(this, if (selected) context.getString(R.string.a11y_selected) else null)
             // Long group names must not push the following pill off-screen.
             maxWidth = dp(220)
             layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, dp(34)).apply { marginEnd = dp(8) }

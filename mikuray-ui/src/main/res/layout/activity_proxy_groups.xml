@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   MikuBox addition: the strategy-group screen the home screen opens (double-tap
-  or swipe on a profile card, or a second tap on the Rule segment). The frame
-  copies the other list screens so the collapsing toolbar, theme attributes and
-  edge-to-edge insets behave identically; the body is built in code by
-  ProxyGroupsPanel.
+  a profile card, or tap the active Rule segment again). It reuses the home
+  screen's own parts — the collapsing toolbar, the group tab strip in its card
+  (activity_main's tab_group, items inflated from item_tab_group) and the list
+  rows — so it reads as one of this app's screens.
 -->
 <androidx.coordinatorlayout.widget.CoordinatorLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
@@ -69,14 +69,91 @@
 
         </com.google.android.material.appbar.CollapsingToolbarLayout>
 
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/group_tab_card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:layout_marginEnd="16dp"
+            android:layout_marginStart="16dp"
+            android:visibility="gone"
+            app:cardBackgroundColor="?attr/colorCard"
+            app:cardCornerRadius="28dp"
+            app:cardElevation="0dp"
+            app:contentPadding="5dp"
+            app:strokeWidth="0dp">
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:clipChildren="true"
+                android:clipToOutline="true"
+                app:cardBackgroundColor="@android:color/transparent"
+                app:cardCornerRadius="23dp"
+                app:cardElevation="0dp"
+                app:strokeWidth="0dp">
+
+                <com.google.android.material.tabs.TabLayout
+                    android:id="@+id/group_tab"
+                    android:layout_width="match_parent"
+                    android:layout_height="40dp"
+                    android:background="@android:color/transparent"
+                    app:tabIndicator="@drawable/uwu_tabs_rounded_indicator"
+                    app:tabIndicatorColor="?attr/colorPrimary"
+                    app:tabIndicatorFullWidth="true"
+                    app:tabIndicatorHeight="40dp"
+                    app:tabMinWidth="0dp"
+                    app:tabMode="scrollable"
+                    app:tabPaddingEnd="0dp"
+                    app:tabPaddingStart="0dp"
+                    app:tabRippleColor="@android:color/transparent" />
+
+            </com.google.android.material.card.MaterialCardView>
+
+        </com.google.android.material.card.MaterialCardView>
+
     </com.google.android.material.appbar.AppBarLayout>
 
     <LinearLayout
         android:id="@+id/proxy_groups_content"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="?attr/colorBg"
         android:orientation="vertical"
-        app:layout_behavior="@string/appbar_scrolling_view_behavior" />
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
+
+        <TextView
+            android:id="@+id/groups_note"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingBottom="4dp"
+            android:paddingEnd="24dp"
+            android:paddingStart="24dp"
+            android:textAppearance="?attr/textAppearanceBodyMedium"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:visibility="gone" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/member_list"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1.0"
+            android:clipToPadding="false"
+            android:paddingBottom="16dp"
+            android:overScrollMode="never" />
+
+        <TextView
+            android:id="@+id/groups_empty"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:paddingBottom="32dp"
+            android:paddingEnd="32dp"
+            android:paddingStart="32dp"
+            android:paddingTop="32dp"
+            android:textAppearance="?attr/textAppearanceTitleMedium"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:visibility="gone" />
+
+    </LinearLayout>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

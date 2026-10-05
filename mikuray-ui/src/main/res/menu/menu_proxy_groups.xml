@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- MikuBox addition: the search / latency actions of the strategy-group screen. -->
+<menu
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item
+        android:id="@+id/action_search"
+        android:icon="@drawable/rmx_system_filter_line"
+        android:title="@string/mihomo_exit_search"
+        app:actionViewClass="androidx.appcompat.widget.SearchView"
+        app:showAsAction="always|collapseActionView" />
+    <item
+        android:id="@+id/action_test_delay"
+        android:icon="@drawable/rmx_media_speed_up_line"
+        android:title="@string/mihomo_groups_test"
+        app:showAsAction="ifRoom" />
+    <item
+        android:id="@+id/action_sort_delay"
+        android:icon="@drawable/rmx_sort_desc"
+        android:title="@string/mihomo_groups_sort"
+        app:showAsAction="ifRoom" />
+</menu>

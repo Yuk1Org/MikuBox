@@ -331,7 +331,7 @@ class ExitPickerPanel(
             name.setTextColor(if (selected) accent else onSurface)
             check.visibility = if (selected) VISIBLE else GONE
             delay.visibility = if (exit.delay > 0) VISIBLE else GONE
-            delay.text = "${exit.delay}ms"
+            delay.text = context.getString(R.string.proxy_delay_ms, exit.delay)
             delay.setTextColor(delayGreen)
             // N11: selection used to be announced only through the bold
             // typeface and the bare checkmark image — invisible to a screen

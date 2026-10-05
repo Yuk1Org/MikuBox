@@ -649,9 +649,8 @@ FastScrollRecyclerView.SectionedAdapter {
          * The card's gestures, owned by the holder so they survive a rebind:
          * the first tap of a double tap travels through selection, and a
          * detector rebuilt by the resulting refresh would drop the second tap.
-         * There is deliberately no swipe here: horizontal drags belong to the
-         * home pager, which switches subscription groups, so a swipe on a card
-         * is cancelled before it could mean anything (decided 2026-10-05).
+         * Horizontal drags never reach here — the home pager switches
+         * subscription groups with them.
          */
         val cardGestures = android.view.GestureDetector(
             itemView.context,

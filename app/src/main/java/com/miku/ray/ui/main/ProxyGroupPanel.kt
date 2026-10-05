@@ -57,7 +57,7 @@ import kotlinx.coroutines.withContext
  * start; live they come from the core, carry its measured latencies and are
  * applied immediately.
  */
-class ProxyGroupPanel(context: Context) : LinearLayout(context) {
+class ProxyGroupPanel(context: Context, private val profileId: String?) : LinearLayout(context) {
 
     private enum class Sort { DECLARED, DELAY }
 
@@ -99,8 +99,11 @@ class ProxyGroupPanel(context: Context) : LinearLayout(context) {
     private val sortButton = actionButton(RemixR.drawable.rmx_sort_desc, R.string.mihomo_groups_sort)
     private val adapter = Adapter()
 
-    /** Whether the core is up: the only state in which members carry latencies. */
-    private val live get() = MikuCoreBridge.isRunning()
+    /**
+     * Whether the running core carries this profile: the only state in which
+     * the rows are the core's own data (provider nodes, measured latencies).
+     */
+    private val live get() = profileId != null && MikuRouting.impl?.activeProfileId() == profileId
 
     private val search = EditText(context)
     private val leadId = View.generateViewId()
@@ -193,7 +196,7 @@ class ProxyGroupPanel(context: Context) : LinearLayout(context) {
             return
         }
         scope.launch {
-            val loaded = withContext(Dispatchers.IO) { runCatching { impl.groups() }.getOrDefault(emptyList()) }
+            val loaded = withContext(Dispatchers.IO) { runCatching { impl.groups(profileId) }.getOrDefault(emptyList()) }
             apply(loaded)
         }
     }
@@ -245,6 +248,13 @@ class ProxyGroupPanel(context: Context) : LinearLayout(context) {
             },
         )
         testButton.isEnabled = !testing
+        // Latency is whatever the core last measured for the profile it runs,
+        // so both actions only mean something there; otherwise the note says
+        // why the rows are the declared members.
+        hint.setText(
+            if (MikuCoreBridge.isRunning()) R.string.mihomo_groups_inactive
+            else R.string.mihomo_groups_offline,
+        )
         hint.visibility = if (hasGroups && !live) VISIBLE else GONE
         sortButton.isSelected = sort == Sort.DELAY
         tintAction(sortButton, sort == Sort.DELAY)
@@ -323,14 +333,14 @@ class ProxyGroupPanel(context: Context) : LinearLayout(context) {
     private fun select(member: String) {
         val group = groups.getOrNull(current) ?: return
         val impl = MikuRouting.impl
-        if (impl?.selectGroupMember(group.name, member) != true) {
+        if (impl?.selectGroupMember(group.name, member, profileId) != true) {
             Toast.makeText(context, R.string.mihomo_mode_failed, Toast.LENGTH_SHORT).show()
             return
         }
         // Re-read instead of patching: live, the core is the truth about the
         // selection (an automatic group may have re-chosen while we asked).
         val updated = group.copy(selected = member.takeIf { it.isNotEmpty() }, pinned = member.isNotEmpty())
-        groups = groups.toMutableList().also { it[current] = impl.groups().firstOrNull { g -> g.name == group.name } ?: updated }
+        groups = groups.toMutableList().also { it[current] = impl.groups(profileId).firstOrNull { g -> g.name == group.name } ?: updated }
         render()
     }
 
@@ -488,13 +498,14 @@ class ProxyGroupPanel(context: Context) : LinearLayout(context) {
         }
 
         /**
-         * The number shown for a member: this panel's own probe first, else the
-         * core's history. Outside a live core there is nothing measured, so the
-         * row stays clean instead of claiming an unreachable node; -3 is a probe
-         * this panel is running right now.
+         * The number shown for a member. This panel's own probe wins — a failed
+         * one reads as a dash, a running one as an ellipsis. Otherwise it is the
+         * core's history, and only a positive reading is shown: the core reports
+         * 0 for groups and DIRECT, which is "no number", not "instant".
          */
         private fun bindDelay(member: MikuRouting.Exit?) {
-            val value = member?.let { measured[it.name] ?: it.delay.takeIf { _ -> live } }
+            val probed = member?.let { measured[it.name] }
+            val value = probed ?: member?.delay?.takeIf { live && it > 0 }
             delay.visibility = if (value != null) VISIBLE else GONE
             delay.text = when {
                 value == null -> ""

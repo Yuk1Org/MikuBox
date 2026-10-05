@@ -1,3 +1,7 @@
+> 已被同日第二轮取代:代理组改为独立界面(卡片双击 / 左滑 / 再点规则滑块进入),
+> 不再使用模式栏下方的一行。界面与入口见 [proxy-groups-screen-2026-10-05.md](proxy-groups-screen-2026-10-05.md)。
+> 本文保留为当时那版(已随 v0.2.6 发布)的记录。
+
 # 主页代理组面板(2026-10-05)
 
 对应 issue [Yuk1Org/MikuBox#2](https://github.com/Yuk1Org/MikuBox/issues/2)「订阅链接导入未显示分组」。

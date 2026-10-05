@@ -32,6 +32,9 @@ class RoutingModeView @JvmOverloads constructor(context: Context, attrs: Attribu
     private val exit = TextView(context)
     private var state = MikuRouting.State("rule", null, emptyList())
     var onSelectionChanged: (() -> Unit)? = null
+
+    /** Opens the profile's strategy-group screen (a second tap on Rule). */
+    var onOpenGroups: (() -> Unit)? = null
     var selectionVersion = 0L
         private set
     private var shownMode: String? = null
@@ -80,7 +83,7 @@ class RoutingModeView @JvmOverloads constructor(context: Context, attrs: Attribu
             textSize = 14f; setTextColor(textColor)
             maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END
             isClickable = true; isFocusable = true
-            setOnClickListener { showPicker() }
+            setOnClickListener { showExits() }
             visibility = GONE
         }
         column.addView(exit, LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT, 0))
@@ -108,23 +111,23 @@ class RoutingModeView @JvmOverloads constructor(context: Context, attrs: Attribu
 
     fun render(value: MikuRouting.State) {
         state = value
-        // Rule mode routes by the config's own rules, so the second row offers
-        // the strategy groups those rules name; global mode's row stays the
-        // GLOBAL exit. Direct names no proxy at all and keeps the row folded.
-        exit.text = if (value.mode == "global") value.exit ?: context.getString(R.string.mihomo_select_exit)
-        else context.getString(R.string.mihomo_groups_entry)
-        exit.contentDescription = if (value.mode == "global") context.getString(R.string.mihomo_global_exit, exit.text)
-        else context.getString(R.string.mihomo_groups_entry)
+        exit.text = value.exit ?: context.getString(R.string.mihomo_select_exit)
+        exit.contentDescription = context.getString(R.string.mihomo_global_exit, exit.text)
         val first = shownMode == null
         if (shownMode != value.mode) transition(value.mode, !first)
     }
 
-    /** Direct mode has no proxies in play, so only the modes above it unfold. */
-    private fun opensPicker(mode: String) = mode != "direct"
+    /** Only global mode unfolds the second row: it carries the GLOBAL exit. */
+    private fun opensPicker(mode: String) = mode == "global"
 
     private fun chooseMode(mode: String) {
         if (state.mode == mode) {
-            if (opensPicker(mode)) showPicker()
+            when {
+                opensPicker(mode) -> showExits()
+                // The groups belong to the profile, not to the mode bar, so
+                // they open their own screen (see [onOpenGroups]).
+                mode == "rule" -> onOpenGroups?.invoke()
+            }
             return
         }
         if (MikuRouting.impl?.mode(mode) != true) { failure(); return }
@@ -199,10 +202,6 @@ class RoutingModeView @JvmOverloads constructor(context: Context, attrs: Attribu
         }
     }
 
-    private fun showPicker() {
-        if (state.mode == "global") showExits() else showGroups()
-    }
-
     private fun showExits() {
         val current = MikuRouting.impl?.state() ?: return
         render(current)
@@ -219,15 +218,6 @@ class RoutingModeView @JvmOverloads constructor(context: Context, attrs: Attribu
                 picker?.dismiss()
             } else failure()
         })
-    }
-
-    /**
-     * The strategy groups of the active profile. It is the rule-mode counterpart
-     * of the exit picker: a subscription's own groups with their members, where
-     * the selection each group routes by is made.
-     */
-    private fun showGroups() {
-        present(R.string.mihomo_groups_entry, ProxyGroupPanel(context.getActivity() ?: context))
     }
 
     /** Shared dialog chrome: host theme, rounded card, and a bounded list height. */

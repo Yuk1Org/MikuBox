@@ -21,4 +21,6 @@
     <string name="mihomo_groups_test">测速</string>
     <string name="mihomo_groups_sort">按延迟排序</string>
     <string name="mihomo_groups_auto">自动选择</string>
+    <string name="mihomo_groups_subtitle">当前配置使用的策略组</string>
+    <string name="mihomo_groups_inactive">该配置未在使用：以下为配置声明的成员，选择会在下次使用该配置时生效。</string>
 </resources>

@@ -37,21 +37,30 @@ object MikuRouting {
         fun mode(value: String): Boolean
         fun exit(name: String): Boolean
 
+        /** The profile the running core was started from; null while it is stopped. */
+        fun activeProfileId(): String?
+
         /**
-         * Strategy groups of the active profile, in the config's declared order.
-         * Live from the core; offline from the stored profile YAML, where
-         * provider-backed members are unknowable and stay unlisted.
+         * Strategy groups of a profile, in the config's declared order — the
+         * selected one when [profileId] is null. Live from the core; offline
+         * from the stored profile YAML, where provider-backed members are
+         * unknowable and stay unlisted.
          */
-        fun groups(): List<Group>
+        fun groups(profileId: String? = null): List<Group>
 
         /**
          * Points [group] at [member]. An empty [member] clears the pin of an
-         * automatic group, returning it to automatic selection. Applied to the
-         * running core and remembered for the next start either way.
+         * automatic group, returning it to automatic selection. The choice is
+         * remembered for that profile's next start, and applied to the running
+         * core immediately when it is the profile the core is carrying.
          */
-        fun selectGroupMember(group: String, member: String): Boolean
+        fun selectGroupMember(group: String, member: String, profileId: String? = null): Boolean
 
-        /** Round-trip latency of one proxy in ms, negative when unknown; blocking. */
+        /**
+         * Round-trip latency of one proxy in ms through the running core,
+         * negative when unknown; blocking. Meaningful only for the active
+         * profile: the core can only probe the nodes it is running.
+         */
         fun delay(name: String): Int
     }
     var impl: Impl? = null

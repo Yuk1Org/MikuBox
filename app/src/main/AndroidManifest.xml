@@ -148,6 +148,11 @@
             android:parentActivityName="com.miku.ray.ui.main.MainActivity" />
 
         <activity
+            android:name="com.miku.ray.ui.main.ProxyGroupsActivity"
+            android:exported="false"
+            android:parentActivityName="com.miku.ray.ui.main.MainActivity" />
+
+        <activity
             android:name=".service.VpnRequestActivity"
             android:exported="false"
             android:theme="@style/AppThemeDayNight.NoActionBar.Translucent" />

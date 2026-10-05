@@ -1577,6 +1577,8 @@
     <string name="mihomo_section_vpn_tun">Интерфейс TUN</string>
     <string name="mihomo_select_exit">Выбрать прокси</string>
     <string name="mihomo_groups_entry">Группы прокси</string>
+    <string name="mihomo_groups_subtitle">Что маршрутизирует этот профиль</string>
+    <string name="mihomo_groups_inactive">Профиль не используется: показаны объявленные в нём участники. Выбор применится при следующем использовании.</string>
     <string name="mihomo_groups_empty">В этом профиле нет групп прокси</string>
     <string name="mihomo_groups_unlisted">Участники этой группы берутся из провайдера — они появятся после подключения</string>
     <string name="mihomo_groups_offline">Нет подключения: показаны участники, объявленные в профиле. Выбор применится при подключении.</string>

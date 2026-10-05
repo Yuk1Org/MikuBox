@@ -450,6 +450,10 @@ class GroupServerFragment : BaseFragment<FragmentGroupServerBinding>() {
         override fun onPinToggle(guid: String, position: Int, isPinned: Boolean) {
             togglePinServer(guid, isPinned)
         }
+
+        override fun onOpenGroups(guid: String) {
+            ownerActivity.openProxyGroups(guid)
+        }
     }
 
     fun refreshDisplayPrefs() {

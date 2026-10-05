@@ -1564,6 +1564,8 @@ yang kamu butuhin."</string>
     <string name="mihomo_section_vpn_tun">Antarmuka TUN</string>
     <string name="mihomo_select_exit">Pilih proxy</string>
     <string name="mihomo_groups_entry">Grup proksi</string>
+    <string name="mihomo_groups_subtitle">Yang dipakai profil ini untuk merutekan</string>
+    <string name="mihomo_groups_inactive">Profil ini tidak sedang dipakai: menampilkan anggota yang dideklarasikannya. Pilihan berlaku saat profil ini dipakai lagi.</string>
     <string name="mihomo_groups_empty">Profil ini tidak punya grup proksi</string>
     <string name="mihomo_groups_unlisted">Anggota grup ini berasal dari penyedia — muncul setelah tersambung</string>
     <string name="mihomo_groups_offline">Belum tersambung: menampilkan anggota yang dideklarasikan profil. Pilihan berlaku saat tersambung.</string>

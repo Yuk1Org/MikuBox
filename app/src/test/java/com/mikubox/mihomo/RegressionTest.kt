@@ -742,6 +742,14 @@ class RegressionTest {
         assertEquals("Tokyo", routing.groups().first { it.name == "Pick" }.selected)
         MihomoProfileStore.select(context, first.id)
         assertEquals("Osaka", routing.groups().first { it.name == "Pick" }.selected)
+        // A screen opened from a card asks for that profile by id, whatever the
+        // app-wide selection is, and a choice made there sticks to it.
+        assertEquals("Tokyo", routing.groups(second.id).first { it.name == "Pick" }.selected)
+        assertTrue(routing.selectGroupMember("Pick", "Osaka", second.id))
+        assertEquals("Osaka", routing.groups(first.id).first { it.name == "Pick" }.selected)
+        assertEquals("Osaka", routing.groups(second.id).first { it.name == "Pick" }.selected)
+        // An unknown profile has no groups rather than the selected one's.
+        assertTrue(routing.groups("no-such-profile").isEmpty())
     }
 
     @Test fun malformedLaterStoreDoesNotOverwriteEarlierStore() {

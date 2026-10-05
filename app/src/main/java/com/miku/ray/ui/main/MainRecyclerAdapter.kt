@@ -370,28 +370,8 @@ FastScrollRecyclerView.SectionedAdapter {
                 }
             }
 
-            val gestureDetector = android.view.GestureDetector(
-                context,
-                object : android.view.GestureDetector.SimpleOnGestureListener() {
-                    override fun onSingleTapUp(e: android.view.MotionEvent): Boolean {
-                        adapterListener?.onSelectServer(guid)
-                        return true
-                    }
-
-                    override fun onDoubleTap(e: android.view.MotionEvent): Boolean {
-                        if (isSelectedServer) {
-                            if (holder.bindingAdapterPosition != RecyclerView.NO_POSITION) {
-                                adapterListener?.onPinToggle(guid, holder.bindingAdapterPosition, isPinned)
-                            }
-                        } else {
-                            adapterListener?.onSelectServer(guid)
-                        }
-                        return true
-                    }
-                }
-            )
             holder.views.infoContainer.setOnTouchListener { _, event ->
-                gestureDetector.onTouchEvent(event)
+                holder.cardGestures.onTouchEvent(event)
                 true
             }
         }
@@ -549,11 +529,17 @@ FastScrollRecyclerView.SectionedAdapter {
         return when (viewType) {
             VIEW_TYPE_ITEM_LIST ->
             MainViewHolder(
-                ListItemViews(ItemRecyclerMainBinding.inflate(LayoutInflater.from(parent.context), parent, false))
+                ListItemViews(ItemRecyclerMainBinding.inflate(LayoutInflater.from(parent.context), parent, false)),
+                cardGuidAt = { position -> data.getOrNull(position)?.guid },
+                onCardTap = { guid -> adapterListener?.onSelectServer(guid) },
+                onCardOpenGroups = { guid -> adapterListener?.onOpenGroups(guid) },
             )
             VIEW_TYPE_ITEM_GRID ->
             MainViewHolder(
-                GridItemViews(ItemRecyclerMainGridBinding.inflate(LayoutInflater.from(parent.context), parent, false))
+                GridItemViews(ItemRecyclerMainGridBinding.inflate(LayoutInflater.from(parent.context), parent, false)),
+                cardGuidAt = { position -> data.getOrNull(position)?.guid },
+                onCardTap = { guid -> adapterListener?.onSelectServer(guid) },
+                onCardOpenGroups = { guid -> adapterListener?.onOpenGroups(guid) },
             )
             else ->
             FooterViewHolder(ItemRecyclerFooterBinding.inflate(LayoutInflater.from(parent.context), parent, false))
@@ -651,8 +637,45 @@ FastScrollRecyclerView.SectionedAdapter {
         override val tvTraffic get() = b.tvTraffic
     }
 
-    class MainViewHolder(val views: MainItemViews) :
-    BaseViewHolder(views.root) {
+    class MainViewHolder(
+        val views: MainItemViews,
+        /** Row lookup by adapter position, resolved when a gesture fires. */
+        private val cardGuidAt: (Int) -> String?,
+        private val onCardTap: (String) -> Unit,
+        private val onCardOpenGroups: (String) -> Unit,
+    ) : BaseViewHolder(views.root) {
+
+        /**
+         * The card's gestures, owned by the holder so they survive a rebind:
+         * the first tap of a double tap travels through selection, and a
+         * detector rebuilt by the resulting refresh would drop the second tap.
+         * A horizontal swipe is not one of them — the home pager owns that
+         * gesture, it switches subscription groups.
+         */
+        val cardGestures = android.view.GestureDetector(
+            itemView.context,
+            object : android.view.GestureDetector.SimpleOnGestureListener() {
+                private fun guid(): String? = bindingAdapterPosition
+                    .takeIf { it != RecyclerView.NO_POSITION }
+                    ?.let(cardGuidAt)
+
+                /** Required, or the detector never tracks past the down event. */
+                override fun onDown(e: android.view.MotionEvent): Boolean = true
+
+                /** Selection waits out the double-tap window: opening a card's
+                 *  screen must not also switch the profile the tunnel uses. */
+                override fun onSingleTapConfirmed(e: android.view.MotionEvent): Boolean {
+                    guid()?.let(onCardTap)
+                    return true
+                }
+
+                override fun onDoubleTap(e: android.view.MotionEvent): Boolean {
+                    guid()?.let(onCardOpenGroups)
+                    return true
+                }
+            },
+        )
+
         override fun onItemSelected() {
             val context = itemView.context
             views.layoutCard.setCardBackgroundColor(context.getColorAttr("colorCard"))

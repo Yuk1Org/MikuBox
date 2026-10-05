@@ -21,4 +21,6 @@
     <string name="mihomo_groups_test">Test latency</string>
     <string name="mihomo_groups_sort">Sort by latency</string>
     <string name="mihomo_groups_auto">Automatic</string>
+    <string name="mihomo_groups_subtitle">What this profile routes with</string>
+    <string name="mihomo_groups_inactive">This profile is not in use: showing the members it declares. A choice applies the next time it is used.</string>
 </resources>

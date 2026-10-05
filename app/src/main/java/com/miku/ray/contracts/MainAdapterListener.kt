@@ -12,4 +12,7 @@ interface MainAdapterListener : BaseAdapterListener {
 
     fun onPinToggle(guid: String, position: Int, isPinned: Boolean)
 
+    /** Opens the strategy-group screen of the profile [guid]. */
+    fun onOpenGroups(guid: String)
+
 }

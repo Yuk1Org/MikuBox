@@ -915,8 +915,24 @@ ShareConfigBottomSheet.OnShareOptionClickListener {
         }
     }
 
+    /**
+     * Opens the strategy-group screen for [profileId]. It is the profile's own
+     * view of its `proxy-groups`, so the card's gestures pass the row they were
+     * made on and the mode bar passes the profile in use.
+     */
+    fun openProxyGroups(profileId: String?) {
+        startActivity(
+            Intent(this, com.miku.ray.ui.main.ProxyGroupsActivity::class.java)
+                .putExtra(com.miku.ray.ui.main.ProxyGroupsActivity.EXTRA_PROFILE_ID, profileId),
+        )
+    }
+
     private fun setupListeners() {
         binding.routingMode.onSelectionChanged = { mainViewModel.fetchCurrentIp(delayMs = 300L) }
+        // A second tap on the active "Rule" segment: the strategy groups of the
+        // profile the tunnel is using. Resolved here, not in the screen, so the
+        // screen always knows which profile it is describing.
+        binding.routingMode.onOpenGroups = { openProxyGroups(MmkvManager.getSelectServer()) }
         binding.fab.setOnClickListener { mainViewModel.onFabClicked() }
         binding.fab.shrink()
 
@@ -1104,6 +1120,7 @@ ShareConfigBottomSheet.OnShareOptionClickListener {
             }
             R.id.service_restart -> LauncherManager.restartServiceOrStart(this, ::startV2Ray)
             R.id.action_scroll_to_selected -> locateSelectedServer()
+            R.id.action_pin_selected -> togglePinSelected()
             R.id.del_all_config -> delAllConfig()
             R.id.del_duplicate_config -> delDuplicateConfig()
             R.id.del_invalid_config -> delInvalidConfig()
@@ -2080,6 +2097,21 @@ ShareConfigBottomSheet.OnShareOptionClickListener {
         } catch (e: Exception) {
             LogUtil.e(AppConfig.TAG, "Failed to read content from URI", e)
         }
+    }
+
+    /**
+     * Pins or unpins the profile the tunnel uses, so it leads the list. It used
+     * to be a hidden double tap on the card, which now opens the profile's own
+     * strategy-group screen; the action belongs where it can be seen.
+     */
+    private fun togglePinSelected() {
+        val guid = MmkvManager.getSelectServer().orEmpty()
+        if (guid.isEmpty()) return
+        val nowPinned = mainViewModel.togglePinServer(guid)
+        snackbarSuccess(
+            getString(if (nowPinned) R.string.toast_server_pinned else R.string.toast_server_unpinned),
+            title = getString(R.string.title_alerter_success),
+        )
     }
 
     fun locateSelectedServer() {

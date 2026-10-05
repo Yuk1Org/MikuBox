@@ -35,15 +35,26 @@ object MikuRayRoutingMode : MikuRouting.Impl {
     }.getOrDefault(emptyMap<Any, Any>())
 
     /**
-     * The strategy groups of the profile, live from the core or from the stored
-     * YAML when it is not running. `GLOBAL` is not one of them: it is the exit
-     * of global mode, and the mode bar's own row already selects it.
+     * The strategy groups of a profile, live from the core or from the stored
+     * YAML when it is not the one running. `GLOBAL` is not one of them: it is
+     * the exit of global mode, and the mode bar's own row already selects it.
      */
-    override fun groups(): List<MikuRouting.Group> {
-        val profile = MihomoProfileStore.selected(context) ?: return emptyList()
-        val live = profile.id == activeProfileId && com.miku.ray.MikuCoreBridge.isRunning()
-        return if (live) liveGroups() else offlineGroups(profile)
+    override fun groups(profileId: String?): List<MikuRouting.Group> {
+        val target = profileOf(profileId) ?: return emptyList()
+        val live = target.id == activeProfileId && com.miku.ray.MikuCoreBridge.isRunning()
+        return if (live) liveGroups() else offlineGroups(target)
     }
+
+    /**
+     * The profile a screen asked for, or the selected one when none was named.
+     * An id that no longer exists is *not* an alias for the selection: showing
+     * another profile's groups would be worse than showing none.
+     */
+    private fun profileOf(profileId: String?): MihomoProfileStore.Profile? =
+        if (profileId == null) MihomoProfileStore.selected(context)
+        else MihomoProfileStore.profiles(context).firstOrNull { it.id == profileId }
+
+    override fun activeProfileId(): String? = activeProfileId
 
     private fun liveGroups(): List<MikuRouting.Group> {
         val proxies = MihomoCore.proxies()
@@ -114,21 +125,21 @@ object MikuRayRoutingMode : MikuRouting.Impl {
             )
         }
 
-    override fun selectGroupMember(group: String, member: String): Boolean {
-        val profile = MihomoProfileStore.selected(context) ?: return false
-        val known = groups().firstOrNull { it.name == group } ?: return false
+    override fun selectGroupMember(group: String, member: String, profileId: String?): Boolean {
+        val target = profileOf(profileId) ?: return false
+        val known = groups(target.id).firstOrNull { it.name == group } ?: return false
         // An empty member means "back to automatic", which only an automatic
         // group can honour: a selector always has a chosen member.
         if (member.isEmpty() && !known.automatic) return false
         if (member.isNotEmpty() && known.members.isNotEmpty() && known.members.none { it.name == member }) return false
-        val live = profile.id == activeProfileId && com.miku.ray.MikuCoreBridge.isRunning()
+        val live = target.id == activeProfileId && com.miku.ray.MikuCoreBridge.isRunning()
         if (live && !MihomoCore.selectProxy(group, member)) return false
-        val key = groupKey(profile.id, group)
+        val key = groupKey(target.id, group)
         val stored = if (member.isEmpty()) prefs(context).edit().remove(key).commit()
         else prefs(context).edit().putString(key, member).commit()
         if (live) notifyTunnelRechosen(context)
-        // Live the core already carries the change; offline the stored choice
-        // is the whole of it and the service applies it when the tunnel starts.
+        // Live the core already carries the change; otherwise the stored choice
+        // is the whole of it and the service applies it when this profile starts.
         return if (live) true else stored
     }
 

@@ -6,6 +6,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.CheckedTextView
+import android.widget.TextView
 import com.miku.ray.AppConfig
 import com.miku.ray.R
 import com.miku.ray.handler.MmkvManager
@@ -79,6 +80,18 @@ class MoreMenuBottomSheet : BaseBottomSheetFragment() {
         view.findViewById<View>(R.id.action_scroll_to_selected)?.visibility =
         if (isScrollButtonsHidden && hasSelectedServer) View.VISIBLE else View.GONE
 
+        // Pinning was a hidden double-tap on the card until that gesture became
+        // the profile's own screen; the action belongs beside the other
+        // selection actions, where it can be found.
+        val selectedGuid = MmkvManager.getSelectServer().orEmpty()
+        val pinned = selectedGuid.isNotEmpty() && MmkvManager.isServerPinned(selectedGuid)
+        view.findViewById<View>(R.id.action_pin_selected)?.apply {
+            visibility = if (hasSelectedServer) View.VISIBLE else View.GONE
+            findViewById<TextView>(R.id.action_pin_selected_label)?.setText(
+                if (pinned) R.string.action_unpin_server else R.string.action_pin_server
+            )
+        }
+
         val isQuickActionsEnabled = MmkvManager.decodeSettingsBool(AppConfig.PREF_SHOW_QUICK_ACTIONS, false)
         listOf(
             R.id.sub_update,
@@ -140,7 +153,8 @@ class MoreMenuBottomSheet : BaseBottomSheetFragment() {
             R.id.clear_country_codes,
             R.id.sub_update,
             R.id.reset_traffic,
-            R.id.action_scroll_to_selected
+            R.id.action_scroll_to_selected,
+            R.id.action_pin_selected
         ).forEach { id ->
             view.findViewById<View>(id)?.setOnClickListener(clickListener)
         }

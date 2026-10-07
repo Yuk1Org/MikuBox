@@ -1716,6 +1716,8 @@ yang kamu butuhin."</string>
     <string name="profile_visual_summary">Perubahan visual memformat ulang YAML dan menghapus komentar. Gunakan mode YAML untuk mengedit teks asli.</string>
     <string name="protocol_http">HTTP</string>
     <string name="protocol_hysteria2">Hysteria2</string>
+    <string name="protocol_anytls">AnyTLS</string>
+    <string name="menu_item_import_config_manually_anytls">Tambah [AnyTLS]</string>
     <string name="protocol_policy_group">Grup Kebijakan</string>
     <string name="protocol_proxy_chain">Rantai Proxy</string>
     <string name="protocol_shadowsocks">Shadowsocks</string>

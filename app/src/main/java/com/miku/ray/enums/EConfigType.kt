@@ -10,6 +10,7 @@ enum class EConfigType(val value: Int, val protocolScheme: String) {
     VLESS(5, AppConfig.VLESS),
     TROJAN(6, AppConfig.TROJAN),
     WIREGUARD(7, AppConfig.WIREGUARD),
+    ANYTLS(11, AppConfig.ANYTLS),
 
     HYSTERIA2(9, AppConfig.HYSTERIA2),
     HYSTERIA(900, AppConfig.HYSTERIA),

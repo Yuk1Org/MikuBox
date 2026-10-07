@@ -143,6 +143,7 @@ object AngConfigManager {
                 EConfigType.TROJAN -> TrojanFmt.toUri(config)
                 EConfigType.WIREGUARD -> WireguardFmt.toUri(config)
                 EConfigType.HYSTERIA2 -> Hysteria2Fmt.toUri(config)
+                EConfigType.ANYTLS -> com.miku.ray.fmt.AnytlsFmt.toUri(config)
                 else -> {}
             }
         } catch (e: Exception) {

@@ -557,6 +557,44 @@ class RegressionTest {
         assertTrue(plain, plain.contains("username: 'bob'") && plain.contains("password: 'pw'"))
     }
 
+    @Test fun anytlsLinksImportFromABase64Subscription() {
+        // A base64 subscription holding only anytls links used to end as
+        // "no compatible proxy links": every line was skipped.
+        val links = listOf(
+            "anytls://hunter2@hk.example:1234?sni=hk.example&insecure=1#HK",
+            "anytls://user:secret@jp.example:8443?alpn=h2,http/1.1&hpkp=chrome#JP",
+        ).joinToString("\n")
+        val encoded = android.util.Base64.encodeToString(links.toByteArray(), android.util.Base64.NO_WRAP)
+        val config = MihomoSubscriptionDecoder.toMihomoConfig(context, encoded)
+        assertTrue(config, config.contains("type: 'anytls'"))
+        assertTrue(config, config.contains("server: 'hk.example'"))
+        assertTrue(config, config.contains("server: 'jp.example'"))
+        // A single user part is the password, as mihomo's own converter reads it.
+        assertTrue(config, config.contains("password: 'hunter2'"))
+        // With both parts, the password is what follows the colon.
+        assertTrue(config, config.contains("password: 'secret'"))
+        assertTrue(config, config.contains("sni: 'hk.example'"))
+        assertTrue(config, config.contains("skip-cert-verify: true"))
+        assertTrue(config, config.contains("client-fingerprint: 'chrome'"))
+        // alpn is a list in mihomo's schema, not a string, and it belongs to
+        // the proxy's own fields: at the item level the whole document breaks.
+        assertTrue(config, config.contains("    alpn: ['h2', 'http/1.1']"))
+        assertFalse(config, config.contains("\n  alpn:"))
+        // The emitted document must still be parseable YAML.
+        assertTrue(config, org.yaml.snakeyaml.Yaml().load<Any>(config) is Map<*, *>)
+        assertTrue(config, config.contains("udp: true"))
+    }
+
+    @Test fun anytlsLinkWithoutAPasswordIsRejected() {
+        assertThrows(IllegalStateException::class.java) {
+            MihomoSubscriptionDecoder.toMihomoConfig(context, "anytls://hk.example:1234#NoPassword")
+        }
+        // And a portless link is not a node either.
+        assertThrows(IllegalStateException::class.java) {
+            MihomoSubscriptionDecoder.toMihomoConfig(context, "anytls://pw@hk.example#NoPort")
+        }
+    }
+
     @Test fun wireguardLinkBecomesAMihomoWireguardProxy() {
         val key = android.util.Base64.encodeToString(ByteArray(32) { it.toByte() }, android.util.Base64.NO_WRAP)
         val pub = android.util.Base64.encodeToString(ByteArray(32) { (it + 1).toByte() }, android.util.Base64.NO_WRAP)

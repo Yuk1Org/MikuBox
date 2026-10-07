@@ -96,6 +96,7 @@ object MihomoSubscriptionDecoder {
         link.startsWith("hy2://", true) || link.startsWith("hysteria2://", true) -> hysteria2(link)
         link.startsWith("hysteria://", true) || link.startsWith("hy://", true) -> hysteria(link)
         link.startsWith("tuic://", true) -> tuic(link)
+        link.startsWith("anytls://", true) -> anytls(link)
         link.startsWith("wireguard://", true) -> wireguard(link)
         link.startsWith("socks://", true) || link.startsWith("socks5://", true) -> socks(link)
         link.startsWith("http://", true) || link.startsWith("https://", true) -> http(link)
@@ -240,6 +241,40 @@ object MihomoSubscriptionDecoder {
         ).filter { it.second.isNotBlank() })
     }
 
+    /**
+     * AnyTLS, per the scheme its project documents (anytls-go/docs/uri_scheme.md):
+     * `anytls://[user[:pass]@]host:port?sni=&insecure=1&hpkp=&alpn=#name`. A link
+     * without a password part uses the user part, which is what mihomo's own
+     * converter does.
+     */
+    private fun anytls(link: String): ProxyYaml? {
+        val uri = Uri.parse(link)
+        val host = uri.host ?: return null
+        val port = uri.port.takeIf { it > 0 } ?: return null
+        val userInfo = Uri.decode(uri.userInfo ?: return null)
+        val password = userInfo.substringAfter(':', userInfo)
+        if (password.isBlank()) return null
+        val alpn = (uri.getQueryParameter("alpn") ?: "")
+            .split(',').map(String::trim).filter(String::isNotEmpty)
+        return ProxyYaml(
+            name = name(uri.fragment, host),
+            type = "anytls",
+            fields = listOf(
+                "server" to host,
+                "port" to port.toString(),
+                "password" to password,
+                "sni" to (uri.getQueryParameter("sni") ?: ""),
+                // Clients disagree on the key; mihomo's converter writes hpkp.
+                "client-fingerprint" to (uri.getQueryParameter("hpkp")
+                    ?: uri.getQueryParameter("fp") ?: uri.getQueryParameter("fingerprint") ?: ""),
+                "skip-cert-verify" to ((uri.getQueryParameter("insecure")
+                    ?: uri.getQueryParameter("allowInsecure")) == "1").toString(),
+                "udp" to "true",
+            ).filter { it.second.isNotBlank() },
+            lists = listOf("alpn" to alpn).filter { it.second.isNotEmpty() },
+        )
+    }
+
     private fun tuic(link: String): ProxyYaml? {
         val uri = Uri.parse(link)
         val host = uri.host ?: return null
@@ -329,7 +364,13 @@ object MihomoSubscriptionDecoder {
         }
     }
 
-    private data class ProxyYaml(val name: String, val type: String, val fields: List<Pair<String, String>>) {
+    private data class ProxyYaml(
+        val name: String,
+        val type: String,
+        val fields: List<Pair<String, String>>,
+        /** Keys whose value is a YAML list rather than a scalar, e.g. `alpn`. */
+        val lists: List<Pair<String, List<String>>> = emptyList(),
+    ) {
         override fun toString(): String {
             // Dotted keys (e.g. "ws-opts.path", "ws-opts.headers.Host") become nested YAML.
             val root = LinkedHashMap<String, Any>()
@@ -338,6 +379,11 @@ object MihomoSubscriptionDecoder {
             return buildString {
                 appendLine("  - name: ${name.yaml()}")
                 emit(root, 2)
+                lists.forEach { (key, values) ->
+                    // The proxy's own field level (emit uses four spaces under
+                    // the item marker), or the key lands on the proxies block.
+                    appendLine("    $key: [${values.joinToString(", ") { it.yaml() }}]")
+                }
             }
         }
     }

@@ -4,6 +4,7 @@ import android.content.Context
 import com.miku.ray.handler.MmkvManager
 import com.miku.ray.dto.entities.ProfileItem
 import com.miku.ray.enums.EConfigType
+import com.miku.ray.fmt.AnytlsFmt
 import com.miku.ray.fmt.Hysteria2Fmt
 import com.miku.ray.fmt.ShadowsocksFmt
 import com.miku.ray.fmt.SocksFmt
@@ -52,6 +53,7 @@ object MikuProfileFormSaver {
                 EConfigType.SHADOWSOCKS -> ShadowsocksFmt.toUri(config)
                 EConfigType.SOCKS, EConfigType.HTTP -> SocksFmt.toUri(config)
                 EConfigType.WIREGUARD -> WireguardFmt.toUri(config)
+                EConfigType.ANYTLS -> AnytlsFmt.toUri(config)
                 else -> Hysteria2Fmt.toUri(config)
             }
             val link = config.configType.protocolScheme + uri
@@ -68,5 +70,6 @@ object MikuProfileFormSaver {
     private val SUPPORTED = setOf(
         EConfigType.VMESS, EConfigType.VLESS, EConfigType.TROJAN, EConfigType.SHADOWSOCKS,
         EConfigType.SOCKS, EConfigType.HTTP, EConfigType.WIREGUARD, EConfigType.HYSTERIA2,
+        EConfigType.ANYTLS,
     )
 }

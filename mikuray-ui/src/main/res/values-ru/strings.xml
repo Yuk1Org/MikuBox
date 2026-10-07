@@ -555,6 +555,8 @@
     <string name="protocol_socks">Socks</string>
     <string name="protocol_http">HTTP</string>
     <string name="protocol_hysteria2">Hysteria2</string>
+    <string name="protocol_anytls">AnyTLS</string>
+    <string name="menu_item_import_config_manually_anytls">Добавить [AnyTLS]</string>
     <string name="protocol_wireguard">Wireguard</string>
     <string name="protocol_policy_group">Группа политик</string>
     <string name="protocol_proxy_chain">Цепочка прокси</string>

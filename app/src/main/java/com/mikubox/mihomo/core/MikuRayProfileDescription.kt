@@ -35,6 +35,7 @@ object MikuRayProfileDescription {
                 "hysteria2", "hy2" -> EConfigType.HYSTERIA2
                 "hysteria" -> EConfigType.HYSTERIA
                 "wireguard" -> EConfigType.WIREGUARD
+                "anytls" -> EConfigType.ANYTLS
                 else -> EConfigType.CUSTOM
             }
     }

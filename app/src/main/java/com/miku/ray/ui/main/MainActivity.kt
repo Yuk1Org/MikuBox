@@ -1084,6 +1084,7 @@ ShareConfigBottomSheet.OnShareOptionClickListener {
             R.id.import_manually_trojan -> importManually(EConfigType.TROJAN.value)
             R.id.import_manually_wireguard -> importManually(EConfigType.WIREGUARD.value)
             R.id.import_manually_hysteria2 -> importManually(EConfigType.HYSTERIA2.value)
+            R.id.import_manually_anytls -> importManually(EConfigType.ANYTLS.value)
         }
     }
 
@@ -1665,6 +1666,7 @@ ShareConfigBottomSheet.OnShareOptionClickListener {
             EConfigType.SOCKS, EConfigType.HTTP -> ServerSocksActivity::class.java
             EConfigType.WIREGUARD -> ServerWireguardActivity::class.java
             EConfigType.HYSTERIA2 -> ServerHysteria2Activity::class.java
+            EConfigType.ANYTLS -> com.miku.ray.ui.server.ServerAnytlsActivity::class.java
             else -> ServerVmessActivity::class.java
         }
 

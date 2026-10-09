@@ -94,16 +94,11 @@ class MikuApp : com.miku.ray.AngApplication() {
                 com.miku.ray.handler.MmkvManager.encodeSettings(marker, true)
             }
         }
-        // The splash the reference shows on every start is behind its own switch,
-        // which defaults to off; a fresh install gets it on, and the switch in
-        // the UI settings can turn it off again.
-        runCatching {
-            val marker = "splash_seeded"
-            if (!com.miku.ray.handler.MmkvManager.decodeSettingsBool(marker, false)) {
-                com.miku.ray.handler.MmkvManager.encodeSettings(com.miku.ray.AppConfig.PREF_SHOW_SPLASH, true)
-                com.miku.ray.handler.MmkvManager.encodeSettings(marker, true)
-            }
-        }
+        // The splash is upstream's own switch and this app ships upstream's
+        // default for it: off. A previous revision seeded it on for fresh
+        // installs while the screen behind it was a no-op, so the switch claimed
+        // something the app did not do; both halves are gone. Whoever turned it
+        // on in UI settings keeps that choice, and the switch is its only writer.
         // Night mode and the language are MikuRay's own settings and it applies
         // both itself — `AngApplication.onCreate` sets the night mode before this
         // runs, and every ported activity wraps its context with the chosen

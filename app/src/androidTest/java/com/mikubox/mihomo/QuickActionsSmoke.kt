@@ -69,6 +69,9 @@ object QuickActionsSmoke {
         test.runOnMainSync { androidx.lifecycle.ViewModelProvider(activity)[MainViewModel::class.java].ensureServerCacheReady() }
         click(com.miku.ray.R.id.btn_quick_sub_update)
         waitFor("subscription download") { MihomoProfileStore.profiles(ctx).first { it.id == profile.id }.updatedAtMillis > 0 }
+        // The download is persisted before the list mirror is refreshed; wait
+        // for the mirror as well, or the probe below races an empty config.
+        waitFor("subscription mirror") { MmkvManager.decodeServerRaw(profile.id)?.isNotBlank() == true }
         report.putString("subscription", "quick button downloads config with schedule disabled")
         test.runOnMainSync { androidx.lifecycle.ViewModelProvider(activity)[MainViewModel::class.java].reloadServerList() }
         Thread.sleep(800)

@@ -19,6 +19,7 @@ import com.miku.ray.handler.SpeedtestManager
 import com.miku.ray.util.LogUtil
 import com.miku.ray.util.MessageUtil
 import com.miku.ray.util.Utils
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -308,7 +309,16 @@ object CoreServiceManager {
         val epoch = connectionEpoch.get()
         val sequence = ipSequence.incrementAndGet()
         probeScope.launch {
-            val ip = runCatching { SpeedtestManager.getRemoteIPInfo() }.getOrNull()
+            val ip = try {
+                SpeedtestManager.getRemoteIPInfo()
+            } catch (_: CancellationException) {
+                // The round was cancelled with the tunnel: this is not a
+                // measurement that came back empty, so it must not be logged
+                // as one.
+                return@launch
+            } catch (_: Exception) {
+                null
+            }
             if (ip.isNullOrBlank()) {
                 // The probe has its own failure logs; this marks the request
                 // that died with it, so a blank readout is attributable.

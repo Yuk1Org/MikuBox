@@ -3074,18 +3074,15 @@
             android:name="com.miku.ray.ui.weather.WeatherForecastActivity" />
 
         <!--
-            MikuRay's own receivers. Its boot receiver is what the "Connect after
-            device boot" switch in the advanced settings drives; this app had a
-            boot receiver of its own, with its own preference and no switch
-            anywhere, which is what this one replaces.
+            App-update hook only. The tunnel never starts on its own, so the
+            receiver no longer listens for boot broadcasts; the one thing an
+            update needs is the subscription schedule re-armed.
         -->
         <receiver
             android:exported="true"
             android:label="BootReceiver"
             android:name="com.miku.ray.receiver.BootReceiver">
             <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>

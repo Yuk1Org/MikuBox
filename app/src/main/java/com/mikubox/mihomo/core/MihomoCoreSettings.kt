@@ -32,7 +32,6 @@ object MihomoCoreSettings {
     private const val KEY_ALLOW_LAN = "allow_lan"
     private const val KEY_TUN_STACK = "tun_stack"
     private const val KEY_IPV6 = "ipv6"
-    private const val KEY_AUTOCONNECT = "autoconnect_on_start"
     private const val KEY_UNIFIED_DELAY = "unified_delay"
     private const val KEY_TCP_CONCURRENT = "tcp_concurrent"
 
@@ -65,9 +64,6 @@ object MihomoCoreSettings {
         )
         sessionMixedPort = if (dynamic) java.net.ServerSocket(0).use { it.localPort } else mixedPort(context)
     }
-
-    fun autoConnectOnStart(context: Context): Boolean = prefs(context).getBoolean(KEY_AUTOCONNECT, false)
-    fun setAutoConnectOnStart(context: Context, value: Boolean) = putBool(context, KEY_AUTOCONNECT, value)
 
     fun unifiedDelay(context: Context): Boolean = prefs(context).getBoolean(KEY_UNIFIED_DELAY, false)
     fun setUnifiedDelay(context: Context, value: Boolean) = putBool(context, KEY_UNIFIED_DELAY, value)

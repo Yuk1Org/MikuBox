@@ -15,37 +15,6 @@ import com.mikubox.mihomo.service.VpnController
 object MikuRayCoreBridge : MikuCoreBridge.Impl {
     override fun connectionElapsedMillis(): Long = com.mikubox.mihomo.service.ConnectionStatus.elapsedMillis()
 
-    override fun startOnBoot(): Boolean {
-        val context = MikuRayBridgeContext.application ?: return false
-        if (OnDemandSettings.enabled(context)) {
-            com.mikubox.mihomo.service.OnDemandService.refresh(context)
-            return true
-        }
-        // Boot receivers cannot display the system consent activity. Wait for the
-        // user to connect from the UI when consent was revoked or never granted.
-        if (android.net.VpnService.prepare(context) != null) return false
-        MikuRayProfileSync.selectedProfileId()?.let { MihomoProfileStore.select(context, it) }
-        if (MihomoProfileStore.selected(context) == null) return false
-        // BOOT_COMPLETED is a background foreground-service-start context: the
-        // platform can refuse the start outright, and an exception here would
-        // crash the process inside the boot broadcast (every other caller of
-        // MikuVpnService.start wraps this). Fall back to arming the tunnel
-        // guard, which retries in the next window the platform allows.
-        runCatching { com.mikubox.mihomo.service.MikuVpnService.start(context, source = "boot") }
-            .onFailure {
-                com.miku.ray.util.LogUtil.w(
-                    message = "startOnBoot could not start the VPN service; falling back to the tunnel guard",
-                    throwable = it,
-                )
-                // schedule() is a no-op unless the tunnel is owed: arming the
-                // expectation first is what makes the fallback actually retry
-                // in the next window the platform allows, instead of leaving
-                // a boot with the switch on and no tunnel ever attempted.
-                com.mikubox.mihomo.service.TunnelGuard.expectRunning(context, true)
-            }
-        return true
-    }
-
     override fun isRunning(): Boolean = VpnController.isRunning
 
     override fun isConnecting(): Boolean = com.mikubox.mihomo.service.MikuVpnService.starting

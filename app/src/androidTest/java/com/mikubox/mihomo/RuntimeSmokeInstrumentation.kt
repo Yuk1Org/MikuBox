@@ -84,7 +84,6 @@ class RuntimeSmokeInstrumentation : Instrumentation() {
                     output.putString("library", "create, bind, rename, delete and backup restore; dedicated script overrides failing global script")
                 }
             }
-            val automatic = arguments.getString("on-demand") == "true"
             // A previous smoke run (or failed run) may still own the tunnel;
             // probing during its teardown would leak traffic past the new TUN.
             if (VpnController.isRunning) {
@@ -93,10 +92,7 @@ class RuntimeSmokeInstrumentation : Instrumentation() {
                 while (com.mikubox.mihomo.service.ConnectionStatus.phase.value != com.mikubox.mihomo.service.ConnectionStatus.Phase.DISCONNECTED && System.nanoTime() < cleanDeadline) Thread.sleep(100)
                 check(com.mikubox.mihomo.service.ConnectionStatus.phase.value == com.mikubox.mihomo.service.ConnectionStatus.Phase.DISCONNECTED) { "Leftover VPN never stopped" }
             }
-            if (automatic) {
-                com.mikubox.mihomo.core.OnDemandSettings.prefs(context).edit().clear().putBoolean("enabled", true).commit()
-                runOnMainSync { com.mikubox.mihomo.service.OnDemandService.refresh(context) }
-            } else runOnMainSync { VpnController.connect(context) }
+            runOnMainSync { VpnController.connect(context) }
             val deadline = System.nanoTime() + 30_000_000_000L
             while (!VpnController.isRunning && System.nanoTime() < deadline) Thread.sleep(100)
             check(VpnController.isRunning) { "VPN did not connect" }
@@ -153,43 +149,13 @@ class RuntimeSmokeInstrumentation : Instrumentation() {
                 output.putString("reconnect", "three stop/start cycles with independent UID DIRECT and relay traffic PASS")
                 output.putString("profile_switch", "bound script -> disabled script -> bound script PASS")
             }
-            if (automatic) {
-                fun waitState(connected: Boolean) {
-                    val end = System.nanoTime() + 30_000_000_000L
-                    val phase = if (connected) com.mikubox.mihomo.service.ConnectionStatus.Phase.CONNECTED else com.mikubox.mihomo.service.ConnectionStatus.Phase.DISCONNECTED
-                    while (com.mikubox.mihomo.service.ConnectionStatus.phase.value != phase && System.nanoTime() < end) Thread.sleep(100)
-                    check(com.mikubox.mihomo.service.ConnectionStatus.phase.value == phase) { "On-demand state did not become $phase" }
-                }
-                val prefs = com.mikubox.mihomo.core.OnDemandSettings.prefs(context)
-                prefs.edit().apply { com.mikubox.mihomo.core.OnDemandSettings.Transport.entries.forEach { putBoolean(it.name, false) } }.commit()
-                waitState(false)
-                prefs.edit().apply { com.mikubox.mihomo.core.OnDemandSettings.Transport.entries.forEach { putBoolean(it.name, true) } }.commit()
-                waitState(true)
-                runOnMainSync { VpnController.disconnect(context) }
-                waitState(false)
-                Thread.sleep(3000)
-                check(!VpnController.isRunning) { "Manual stop was reversed by monitor" }
-                com.mikubox.mihomo.core.OnDemandSettings.setEnabled(context, false)
-                runOnMainSync { com.mikubox.mihomo.service.OnDemandService.refresh(context) }
-                output.putString("on_demand", "automatic connect, pause, resume and manual-stop persistence PASS")
-            }
             runOnMainSync { VpnController.disconnect(context) }
             val stopDeadline = System.nanoTime() + 10_000_000_000L
             while (com.mikubox.mihomo.service.ConnectionStatus.phase.value != com.mikubox.mihomo.service.ConnectionStatus.Phase.DISCONNECTED && System.nanoTime() < stopDeadline) Thread.sleep(100)
             check(com.mikubox.mihomo.service.ConnectionStatus.phase.value == com.mikubox.mihomo.service.ConnectionStatus.Phase.DISCONNECTED) { "VPN did not stop" }
-            if (arguments.getString("prepare-boot") == "true") {
-                MmkvManager.setSelectServer(profile.id)
-                MmkvManager.encodeStartOnBoot(true)
-                MmkvManager.encodeSettings(AppConfig.PREF_FAB_EXTENDED, true)
-                com.mikubox.mihomo.core.OnDemandSettings.prefs(context).edit().putBoolean("enabled", true).commit()
-                runOnMainSync { com.mikubox.mihomo.service.OnDemandService.refresh(context) }
-                output.putString("boot", "on-demand and boot connection enabled for actual emulator reboot")
-            }
             output.putString("stream", output.keySet().joinToString("\n") { "$it=${output.getString(it)}" })
             finish(android.app.Activity.RESULT_OK, output)
         } catch (failure: Throwable) {
-            com.mikubox.mihomo.core.OnDemandSettings.setEnabled(targetContext, false)
-            runOnMainSync { com.mikubox.mihomo.service.OnDemandService.refresh(targetContext) }
             runOnMainSync { VpnController.disconnect(targetContext) }
             output.putString("stream", failure.stackTraceToString())
             finish(android.app.Activity.RESULT_CANCELED, output)

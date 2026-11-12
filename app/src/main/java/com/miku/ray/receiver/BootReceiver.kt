@@ -3,59 +3,25 @@ package com.miku.ray.receiver
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.os.UserManager
 import com.miku.ray.AppConfig
-import com.miku.ray.handler.MmkvManager
 import com.miku.ray.handler.SubscriptionUpdater
 import com.miku.ray.util.LogUtil
 
+/**
+ * App-update hook only.
+ *
+ * The tunnel never starts on its own: there is no boot start, no sticky
+ * restart and no recovery alarm. This receiver survives for the one piece of
+ * housekeeping an update needs — re-arming the subscription schedule — and
+ * does not touch the VPN.
+ */
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context?, intent: Intent?) {
         val action = intent?.action ?: return
         if (context == null) return
+        if (action != Intent.ACTION_MY_PACKAGE_REPLACED) return
 
-        LogUtil.i(AppConfig.TAG, "BootReceiver received: $action")
-
-        when (action) {
-            Intent.ACTION_BOOT_COMPLETED -> {
-            }
-            Intent.ACTION_MY_PACKAGE_REPLACED -> {
-                // An app update is not a boot. This receiver used to run the
-                // whole "start on boot" path for it, so every install brought
-                // the tunnel up within a minute while the user believed it was
-                // off — an update lands to replace code, not to reconnect.
-                // The periodic subscription work still needs its entries, so
-                // refresh those and stop here.
-                LogUtil.i(AppConfig.TAG, "BootReceiver: app updated, not starting the tunnel")
-                SubscriptionUpdater.sync(context)
-                return
-            }
-            Intent.ACTION_LOCKED_BOOT_COMPLETED -> {
-                val userManager = context.getSystemService(Context.USER_SERVICE) as? UserManager
-                if (userManager != null && !userManager.isUserUnlocked) {
-                    LogUtil.w(AppConfig.TAG, "BootReceiver: User is locked, skipping auto start")
-                    return
-                }
-            }
-            else -> {
-                LogUtil.w(AppConfig.TAG, "BootReceiver: Unhandled action: $action")
-                return
-            }
-        }
-
-        if (!MmkvManager.decodeStartOnBoot()) {
-            LogUtil.i(AppConfig.TAG, "BootReceiver: Auto-start on boot is disabled")
-            return
-        }
-
-        if (MmkvManager.getSelectServer().isNullOrEmpty()) {
-            LogUtil.w(AppConfig.TAG, "BootReceiver: No server selected")
-            return
-        }
-
-        if (!com.miku.ray.MikuCoreBridge.startOnBoot()) {
-            LogUtil.i(AppConfig.TAG, "BootReceiver: Waiting for VPN permission or a selected profile")
-        }
+        LogUtil.i(AppConfig.TAG, "BootReceiver: app updated, refreshing subscription schedule")
         SubscriptionUpdater.sync(context)
     }
 }

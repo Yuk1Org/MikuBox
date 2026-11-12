@@ -92,10 +92,10 @@ internal object LifecycleSmoke {
                     waitUntil("cancelled or stopped core did not finish", ::stopped)
                     // ConnectivityService publishes interface removal asynchronously.
                     waitUntil("stopped VPN interface was not released") { !hasVpn() }
-                    check(!TunnelGuard.isExpected(context)) { "UI service stop retained recovery intent" }
-                    test.runOnMainSync { TunnelGuardReceiver().onReceive(context, Intent()) }
+                    // No recovery path may bring it back: the tunnel only starts
+                    // from a user action.
                     Thread.sleep(1000)
-                    check(!hasVpn() && !VpnController.isRunning) { "Late startup or guard resurrected a stopped VPN" }
+                    check(!hasVpn() && !VpnController.isRunning) { "A stopped VPN resurrected" }
                     ServerSocket(10808).use { }
                     java.net.DatagramSocket(10808).use { }
                 } finally {

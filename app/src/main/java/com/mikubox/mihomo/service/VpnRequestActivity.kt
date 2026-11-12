@@ -27,10 +27,7 @@ class VpnRequestActivity : AppCompatActivity() {
     }
 
     private fun startRequestedMode() {
-        if (intent.getBooleanExtra("on_demand", false)) {
-            com.mikubox.mihomo.core.OnDemandSettings.setEnabled(this, true)
-            OnDemandService.refresh(this)
-        } else MikuVpnService.start(this, source = "consent")
+        MikuVpnService.start(this, source = "consent")
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

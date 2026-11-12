@@ -18,7 +18,6 @@ object MikuCoreBridge {
     interface Impl {
         fun isRunning(): Boolean
         fun connectionElapsedMillis(): Long = 0L
-        fun startOnBoot(): Boolean = false
 
         /**
          * True while the service is starting (CONNECTING), before [isRunning]
@@ -69,8 +68,6 @@ object MikuCoreBridge {
     fun install(implementation: Impl) {
         impl = implementation
     }
-
-    fun startOnBoot(): Boolean = impl.startOnBoot()
 
     fun isRunning(): Boolean = impl.isRunning()
 

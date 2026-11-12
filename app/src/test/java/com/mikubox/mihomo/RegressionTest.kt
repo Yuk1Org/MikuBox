@@ -55,22 +55,6 @@ class RegressionTest {
         assertNull(com.mikubox.mihomo.core.chooseUnderlyingNetwork(listOf(candidates.last()), vpn, null))
     }
 
-    @Test fun failedRecoveryBacksOffPersistsAndPausesUntilReset() {
-        val recovery = com.mikubox.mihomo.service.RecoveryBackoff
-        recovery.reset(context)
-        recovery.failed(context, 1000)
-        assertEquals(30_000L, recovery.remainingMillis(context, 1000))
-        recovery.failed(context, 31_000)
-        assertEquals(60_000L, recovery.remainingMillis(context, 31_000))
-        assertEquals(2, context.getSharedPreferences("tunnel_recovery", 0).getInt("failures", 0))
-        recovery.failed(context, 91_000)
-        assertTrue(com.mikubox.mihomo.service.TunnelGuard.recoveryPaused(context))
-        assertEquals(0L, recovery.remainingMillis(context, 999_999))
-        recovery.reset(context)
-        assertFalse(com.mikubox.mihomo.service.TunnelGuard.recoveryPaused(context))
-        assertEquals(0L, recovery.remainingMillis(context, 1000))
-    }
-
     @Test fun deletingGroupMovesProfilesAndKeepsInFlightSubscriptionMetadata() {
         val group = com.mikubox.mihomo.profile.ProfileGroups.create(context, "Remove me")
         val source = MihomoProfileStore.createSubscription(context, "Subscription", "https://example.com/sub", 60,
@@ -448,39 +432,13 @@ class RegressionTest {
         extras.setExtra(context, library.KEY, "")
     }
 
-    @Test fun onDemandDecisionsHandlePermissionsAndExactSsidMatching() {
-        val settings = com.mikubox.mihomo.core.OnDemandSettings
-        val wifi = com.mikubox.mihomo.core.OnDemandSettings.Transport.WIFI
-        val cellular = com.mikubox.mihomo.core.OnDemandSettings.Transport.CELLULAR
-        val allowed = setOf(wifi, cellular)
-        val excluded = settings.parseSsids("Home Wi-Fi\n公司网络\nHome Wi-Fi\n")
-        assertEquals(2, excluded.size)
-        assertEquals(com.mikubox.mihomo.core.OnDemandSettings.Decision.DISCONNECT, settings.decide(null, allowed, excluded))
-        assertEquals(com.mikubox.mihomo.core.OnDemandSettings.Decision.WAIT_FOR_SSID, settings.decide(com.mikubox.mihomo.core.OnDemandSettings.NetworkState(wifi), allowed, excluded))
-        assertEquals(com.mikubox.mihomo.core.OnDemandSettings.Decision.DISCONNECT, settings.decide(com.mikubox.mihomo.core.OnDemandSettings.NetworkState(wifi, "Home Wi-Fi"), allowed, excluded))
-        assertEquals(com.mikubox.mihomo.core.OnDemandSettings.Decision.CONNECT, settings.decide(com.mikubox.mihomo.core.OnDemandSettings.NetworkState(wifi, "home wi-fi"), allowed, excluded))
-        assertEquals(com.mikubox.mihomo.core.OnDemandSettings.Decision.CONNECT, settings.decide(com.mikubox.mihomo.core.OnDemandSettings.NetworkState(cellular), allowed, excluded))
-        assertEquals(com.mikubox.mihomo.core.OnDemandSettings.Decision.DISCONNECT, settings.decide(com.mikubox.mihomo.core.OnDemandSettings.NetworkState(cellular), setOf(wifi), excluded))
-        assertTrue(runCatching { settings.parseSsids("中".repeat(11)) }.isFailure)
-    }
-
-    @Test fun automationSettingsRoundTripThroughBackupAndOnlyEnabledScriptIsSent() {
-        val settings = com.mikubox.mihomo.core.OnDemandSettings
+    @Test fun onlyEnabledScriptIsSentToTheCore() {
         val overrides = com.mikubox.mihomo.core.CoreOverrides
-        settings.prefs(context).edit().clear().putBoolean("enabled", true).putString("excluded", "Home").commit()
         overrides.setExtra(context, "script.source", "function main(c) { return c; }")
         overrides.setExtra(context, "script.enabled", "false")
         assertFalse(JSONObject(MihomoCoreSettings.overridesJson(context)).has("miku-override-script"))
         overrides.setExtra(context, "script.enabled", "true")
         assertEquals("function main(c) { return c; }", JSONObject(MihomoCoreSettings.overridesJson(context)).getString("miku-override-script"))
-        val backup = BackupManager.export(context)
-        settings.prefs(context).edit().clear().commit()
-        overrides.setExtra(context, "script.source", "")
-        BackupManager.import(context, backup)
-        assertTrue(settings.enabled(context))
-        assertEquals(setOf("Home"), settings.excluded(context))
-        assertEquals("function main(c) { return c; }", overrides.extra(context, "script.source"))
-        settings.prefs(context).edit().clear().commit()
         overrides.setExtra(context, "script.enabled", "false")
     }
 
@@ -645,24 +603,6 @@ class RegressionTest {
         assertEquals(true, dns["true"])
         val node = (document["proxies"] as List<*>).single() as Map<*, *>
         assertTrue(node.keys.all { it is String })
-    }
-
-    @Test fun failedConnectionAttemptThatLeftNoOutcomeIsCounted() {
-        val guard = com.mikubox.mihomo.service.TunnelGuard
-        val backoff = com.mikubox.mihomo.service.RecoveryBackoff
-        backoff.reset(context)
-        // A quiet process start finds nothing pending.
-        assertFalse(guard.noteDeadAttempt(context))
-        // Connecting began, then the process died before any outcome was recorded.
-        backoff.markAttempt(context)
-        assertTrue(guard.noteDeadAttempt(context))
-        assertEquals(1, backoff.failures(context))
-        // Counting it consumed the marker: the same attempt is not counted twice.
-        assertFalse(guard.noteDeadAttempt(context))
-        repeat(2) { backoff.markAttempt(context); guard.noteDeadAttempt(context) }
-        assertTrue(guard.recoveryPaused(context))
-        backoff.reset(context)
-        assertFalse(backoff.attempting(context))
     }
 
     @Test fun importConfirmationNamesTheSourceWithoutEchoingSecrets() {

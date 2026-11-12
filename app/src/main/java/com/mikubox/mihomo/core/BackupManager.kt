@@ -23,7 +23,6 @@ object BackupManager {
         "miku_android_routes",
         "miku_dns_settings",
         "miku_dns_overrides",
-        OnDemandSettings.STORE,
     )
 
     fun export(context: Context): String {

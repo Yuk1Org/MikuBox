@@ -47,10 +47,9 @@ object ProfileFeaturesSmoke {
         val rules = com.mikubox.mihomo.core.MihomoCore.rules()
         check(rules.none { it.target == "REJECT" })
         check(rules.any { it.target == "Proxy" })
-        // A deliberate disconnect must clear recovery intent immediately.
+        // A deliberate disconnect must leave it disconnected.
         test.runOnMainSync { VpnController.disconnect(context) }
         waitPhase(ConnectionStatus.Phase.DISCONNECTED)
-        check(!com.mikubox.mihomo.service.TunnelGuard.isExpected(context))
         ProfileRouting.setEnabled(context, profile.id, false)
         test.runOnMainSync { VpnController.connect(context) }
         waitPhase(ConnectionStatus.Phase.CONNECTED)

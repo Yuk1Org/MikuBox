@@ -1,81 +1,17 @@
 package com.mikubox.mihomo.core
 
-import android.Manifest
-import android.content.Intent
-import android.content.pm.PackageManager
 import android.graphics.Typeface
-import android.os.Build
-import android.provider.Settings
 import android.text.InputType
 import android.widget.EditText
 import android.widget.Toast
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.preference.*
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.miku.ray.R
 import kotlinx.coroutines.*
 import com.mikubox.mihomo.profile.MihomoProfileStore
-import com.mikubox.mihomo.service.OnDemandService
-import com.mikubox.mihomo.service.VpnRequestActivity
 
 object AutomationPreferences {
-    fun bindNetwork(fragment: PreferenceFragmentCompat) {
-        val ctx = fragment.requireContext()
-        val prefs = OnDemandSettings.prefs(ctx)
-        fragment.findPreference<SwitchPreferenceCompat>("on-demand.enabled")!!.apply {
-            isPersistent = false
-            isChecked = OnDemandSettings.enabled(ctx)
-            setOnPreferenceChangeListener { _, value ->
-                if (value == true) {
-                    if (MihomoProfileStore.selected(ctx) == null) {
-                        Toast.makeText(ctx, R.string.mihomo_on_demand_setup, Toast.LENGTH_LONG).show()
-                    } else fragment.startActivity(Intent(ctx, VpnRequestActivity::class.java).putExtra("on_demand", true))
-                    false // Updated after consent when the fragment resumes.
-                } else {
-                    OnDemandSettings.setEnabled(ctx, false)
-                    OnDemandService.refresh(ctx)
-                    true
-                }
-            }
-        }
-        OnDemandSettings.Transport.entries.forEach { transport ->
-            fragment.findPreference<SwitchPreferenceCompat>("on-demand.${transport.name}")!!.apply {
-                isPersistent = false
-                isChecked = prefs.getBoolean(transport.name, true)
-                setOnPreferenceChangeListener { _, value -> prefs.edit().putBoolean(transport.name, value as Boolean).apply(); true }
-            }
-        }
-        fragment.findPreference<EditTextPreference>("on-demand.excluded")!!.apply {
-            isPersistent = false
-            text = prefs.getString("excluded", "")
-            setOnBindEditTextListener { it.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE }
-            setOnPreferenceChangeListener { _, value ->
-                runCatching { OnDemandSettings.parseSsids(value as String) }.fold(
-                    onSuccess = { prefs.edit().putString("excluded", it.joinToString("\n")).apply(); true },
-                    onFailure = { Toast.makeText(ctx, R.string.mihomo_invalid_value, Toast.LENGTH_LONG).show(); false })
-            }
-        }
-        fragment.findPreference<Preference>("on-demand.permission")!!.setOnPreferenceClickListener {
-            if (ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                @Suppress("DEPRECATION")
-                fragment.requestPermissions(arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION), 1104)
-            } else {
-                fragment.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.parse("package:${ctx.packageName}")))
-            }
-            true
-        }
-    }
-
-    fun refreshNetwork(fragment: PreferenceFragmentCompat) {
-        val ctx = fragment.context ?: return
-        fragment.findPreference<SwitchPreferenceCompat>("on-demand.enabled")?.isChecked = OnDemandSettings.enabled(ctx)
-        val fine = ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-        val background = Build.VERSION.SDK_INT < 29 || ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACCESS_BACKGROUND_LOCATION) == PackageManager.PERMISSION_GRANTED
-        fragment.findPreference<Preference>("on-demand.permission")?.summary = ctx.getString(
-            if (fine && background) R.string.mihomo_on_demand_permission_ready else R.string.mihomo_on_demand_permission_hint)
-    }
-
     fun bindScript(fragment: PreferenceFragmentCompat) {
         val ctx = fragment.requireContext()
         fragment.findPreference<SwitchPreferenceCompat>("script.enabled")!!.apply {

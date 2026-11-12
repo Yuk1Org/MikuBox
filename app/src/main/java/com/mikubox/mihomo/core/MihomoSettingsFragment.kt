@@ -14,28 +14,7 @@ class MihomoSettingsFragment : PreferenceFragmentCompat() {
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
         addPreferencesFromResource(R.xml.pref_core_settings)
         MihomoPreferenceBindings(this).apply { bindCore(); styleTitles() }
-        addAutoConnectSwitch()
         CategoryStyleHelper.applyToFragment(this)
-    }
-
-    /**
-     * MikuBox's own switch, built in code so the vendored preference XML stays
-     * byte-for-byte with upstream MikuRay — the same pattern as the VPN
-     * screen's background-protection category.
-     */
-    private fun addAutoConnectSwitch() {
-        val autoConnect = androidx.preference.SwitchPreferenceCompat(requireContext()).apply {
-            key = "autoconnect_on_start"
-            isPersistent = false
-            title = getString(R.string.mihomo_autoconnect_title)
-            summary = getString(R.string.mihomo_autoconnect_summary)
-            isChecked = MihomoCoreSettings.autoConnectOnStart(requireContext())
-            setOnPreferenceChangeListener { _, newValue ->
-                MihomoCoreSettings.setAutoConnectOnStart(requireContext(), newValue as Boolean)
-                true
-            }
-        }
-        preferenceScreen.addPreference(autoConnect)
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -48,7 +27,6 @@ class MihomoSettingsFragment : PreferenceFragmentCompat() {
 class MihomoVpnSettingsFragment : com.miku.ray.ui.preference.activity.VpnSettingsActivity.VpnSettingsFragment() {
     override fun onResume() {
         super.onResume()
-        AutomationPreferences.refreshNetwork(this)
         val power = requireContext().getSystemService(android.os.PowerManager::class.java)
         findPreference<Preference>("background_battery_status")?.summary =
             if (power.isIgnoringBatteryOptimizations(requireContext().packageName)) getString(R.string.mihomo_vpn_battery_ok)
@@ -61,15 +39,13 @@ class MihomoVpnSettingsFragment : com.miku.ray.ui.preference.activity.VpnSetting
                     else getString(R.string.mihomo_vpn_lockdown_off)
             else -> getString(R.string.mihomo_vpn_always_on_hint)
         }
-        findPreference<Preference>("background_recovery")?.summary =
-            if (com.mikubox.mihomo.service.TunnelGuard.recoveryPaused(requireContext()))
-                getString(R.string.mihomo_vpn_recovery_paused)
-            else getString(R.string.mihomo_vpn_recovery_summary)
-
     }
     override fun onCreatePreferences(bundle: Bundle?, rootKey: String?) {
         super.onCreatePreferences(bundle, rootKey)
         MihomoPreferenceBindings(this).apply { bindVpn(); styleTitles() }
+        // The app no longer reconnects on network changes; the on-demand
+        // controls would be dead switches, so the whole category is hidden.
+        findPreference<Preference>("on_demand")?.isVisible = false
         val category = PreferenceCategory(requireContext()).apply { title = getString(R.string.mihomo_vpn_bg_category) }
         preferenceScreen.addPreference(category)
         category.addPreference(Preference(requireContext()).apply {
@@ -99,11 +75,6 @@ class MihomoVpnSettingsFragment : com.miku.ray.ui.preference.activity.VpnSetting
             summary = getString(R.string.mihomo_vpn_oem_summary)
             setOnPreferenceClickListener { openSystemSettings(appDetailsIntent()); true }
         })
-        category.addPreference(Preference(requireContext()).apply {
-            key = "background_recovery"
-            title = getString(R.string.mihomo_vpn_recovery_title)
-            isSelectable = false
-        })
     }
 
     private fun appDetailsIntent() = android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
@@ -120,6 +91,9 @@ class MihomoAdvancedSettingsFragment : com.miku.ray.ui.preference.activity.Advan
     override fun onCreatePreferences(bundle: Bundle?, rootKey: String?) {
         super.onCreatePreferences(bundle, rootKey)
         MihomoPreferenceBindings(this).apply { bindAdvanced(); styleTitles() }
+        // The tunnel never starts on its own, so a "connect after boot" switch
+        // would promise something the app deliberately does not do.
+        findPreference<Preference>(com.miku.ray.AppConfig.PREF_IS_BOOTED)?.isVisible = false
     }
 }
 
@@ -223,7 +197,6 @@ private class MihomoPreferenceBindings(private val fragment: PreferenceFragmentC
     }
 
     fun bindVpn() {
-        AutomationPreferences.bindNetwork(fragment)
         toggle("vpn.allow-bypass", AndroidVpnSettings.allowBypass(ctx)) { CoreOverrides.setExtra(ctx, "vpn.allow-bypass", it.toString()) }
         toggle("vpn.ipv6-inbound", AndroidVpnSettings.ipv6Inbound(ctx)) { CoreOverrides.setExtra(ctx, "vpn.ipv6-inbound", it.toString()) }
         text("vpn.proxy-exclusions", CoreOverrides.extra(ctx, "vpn.proxy-exclusions"), { !it.contains("://") }) { CoreOverrides.setExtra(ctx, "vpn.proxy-exclusions", it) }

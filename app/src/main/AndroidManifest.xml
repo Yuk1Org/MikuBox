@@ -13,7 +13,6 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission
         android:name="android.permission.QUERY_ALL_PACKAGES"
@@ -200,10 +199,6 @@
                 android:value="vpn" />
         </service>
 
-        <service android:name=".service.OnDemandService" android:exported="false" android:foregroundServiceType="specialUse">
-            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="User-enabled VPN on-demand network monitoring" />
-        </service>
-
         <service android:name="com.miku.ray.service.CoreTestService" android:process=":probe_delay"
             android:exported="false" android:foregroundServiceType="specialUse">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="User initiated proxy latency tests" />
@@ -224,18 +219,9 @@
         </service>
 
         <!--
-            The tunnel guard's alarm lands here. Explicit component (no action
-            filter), so only our own PendingIntent can reach it.
-        -->
-        <receiver
-            android:name=".service.TunnelGuardReceiver"
-            android:exported="false" />
-
-        <!--
-            No boot receiver here: MikuRay's own is declared with the screens in
-            :mikuray-ui, and it is the one the "Connect after device boot" switch
-            drives. This app used to carry a second one with its own preference
-            and no switch anywhere.
+            No guard receiver and no boot start: the tunnel only starts from a
+            user action and is kept alive by the foreground service while it
+            runs.
         -->
 
         <!--
